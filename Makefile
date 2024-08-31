@@ -49,6 +49,7 @@ endif
 TOOLS ?= $(BASE)/tools
 KPT_PKG ?= $(BASE)/eda-kpt
 CATALOG ?= $(BASE)/catalog
+K8S_HELM ?= $(BASE)/connect-k8s-helm-charts
 TIMEOUT_NODE_READY ?= 600s
 
 CFG := $(TOP_DIR)/configs
@@ -77,6 +78,7 @@ GH_RO_TOKEN := github_pat_11BKY6GOY0POgRWXpt3fDz_uYUSoRBMtXAXL3XgiqDugPke3VR6HYY
 ### Eda components
 EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/kpt.git
 CATALOG_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/catalog.git
+K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/connect-k8s-helm-charts.git
 
 ### Tools
 KIND_SRC := https://kind.sigs.k8s.io/dl/v0.17.0/kind-$(OS)-$(ARCH)
@@ -130,6 +132,16 @@ update-pkgs: ## Fetch eda kpt and catalog updates
 	git -C $(KPT_PKG) pull
 	git -C $(CATALOG) pull
 	git -C $(CATALOG) pull --tags --force
+
+$(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
+	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM)
+
+.PHONY: download-connect-k8s-helm-charts
+download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
+
+.PHONY: update-connect-k8s-helm-charts
+update-connect-k8s-helm-charts: ## Fetch connect-k8s-helm-charts updates
+	git -C $(K8S_HELM) pull
 
 .PHONY: login-registry
 login-registry: ## Log in to the core image registries
