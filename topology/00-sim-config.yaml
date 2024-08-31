@@ -1,0 +1,33 @@
+apiVersion: v1
+data:
+  sim.json: |-
+    {
+        "metadata": {},
+        "items": [
+          {
+            "metadata": {
+              "creationTimestamp": null
+            },
+            "spec": {
+              "topology": [
+                {
+                  "node": "*",
+                  "interface": "*",
+                  "simNode": "testman-default"
+                }
+              ],
+              "simNodes": [
+                {
+                  "name": "testman-default",
+                  "type": "TestMan"
+                }
+              ]
+            },
+            "status": {}
+          }
+        ]
+      }
+kind: ConfigMap
+metadata:
+  name: sim-config
+  namespace: default

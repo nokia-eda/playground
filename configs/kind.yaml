@@ -1,0 +1,12 @@
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  # the default CNI will not be installed
+  disableDefaultCNI: true
+  ipFamily: dual
+  # if you want to expose the kind cluster externally
+  # change the API server address from loopback to the desired IP
+  apiServerAddress: "127.0.0.1"
+nodes:
+  - role: control-plane
