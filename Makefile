@@ -663,7 +663,11 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-		sudo -E $(KUBECTL) port-forward service/eda-api --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443													;\
+                port_forward_cmd="$(KUBECTL) port-forward service/eda-api --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
+                if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then \
+		port_forward_cmd="sudo -E $${port_forward_cmd}" ;\
+		fi ;\
+		eval $$port_forward_cmd ;\
 	}
 
 
