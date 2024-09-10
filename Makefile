@@ -4,6 +4,8 @@ SHELL = /usr/bin/env bash -o pipefail
 TOP_DIR := $(abspath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BASE=$(CURDIR)
 
+-include $(TOP_DIR)/prefs.mk
+
 ## Top level options
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
@@ -40,7 +42,7 @@ SRL_IMAGE_REGISTRY=ghcr.io/nokia
 
 # Set the SRL Image to the arm variant if we're on arm64
 ifeq ($(ARCH), arm64)
-  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY_)/srlinux:24.7.2-arm-preview
+  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-arm-preview
 else
   SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-330
 endif
@@ -202,18 +204,18 @@ kind: cluster cluster-wait-for-node-ready metallb ## Launch a single node KinD c
 .PHONY: cluster
 cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
 	@{	\
-		MATCHED=0														;\
-		for cluster in $$($(KIND) get clusters); do 					 \
-			if [[ "$${cluster}" == "$(KIND_CLUSTER_NAME)" ]]; then		 \
-				MATCHED=1												;\
-			fi															;\
-		done															;\
-		if [[ "$${MATCHED}" == "0" ]]; then								 \
-			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(CFG)/kind.yaml ;\
-		else															 \
-			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"	;\
-		fi																;\
-		$(KUBECTL) apply -f $(CFG)/install-kindnet-bridge.yaml			;\
+		MATCHED=0																			;\
+		for cluster in $$($(KIND) get clusters); do 										 \
+			if [[ "$${cluster}" == "$(KIND_CLUSTER_NAME)" ]]; then							 \
+				MATCHED=1																	;\
+			fi																				;\
+		done																				;\
+		if [[ "$${MATCHED}" == "0" ]]; then													 \
+			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(CFG)/kind.yaml	;\
+		else																				 \
+			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
+		fi																					;\
+		$(KUBECTL) apply -f $(CFG)/install-kindnet-bridge.yaml | sed 's/^/    /'			;\
 	}
 
 .PHONY: cluster-wait-for-node-ready
@@ -243,11 +245,11 @@ endef
 .PHONY: metallb-operator
 metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the load balancer, metallb in the cluster)
 	@{	\
-		$(KUBECTL) apply -f $(CFG)/metallb-native.yaml;\
+		$(KUBECTL) apply -f $(CFG)/metallb-native.yaml | sed 's/^/    /';\
 		$(KUBECTL) wait --namespace metallb-system \
 						--for=condition=ready pod \
 						--selector=app=metallb \
-						--timeout=120s ;\
+						--timeout=120s | sed 's/^/    /';\
 	}
 
 LB_CFG_SRC := $(CFG)/metallb.yaml
@@ -270,7 +272,7 @@ metallb-config: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb config) @ ## 
 	$(eval KIND_SUBNET6=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep ':' | head -n 1 | awk -F':' '{print $$1 ":" $$2 ":" $$3 ":" $$4}'))
 	@echo "--> LB: Detected IPv4 Subnet: $(KIND_SUBNET)"
 	@echo "--> LB: Detected IPv6 Subnet: $(KIND_SUBNET6)"
-	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" | $(KUBECTL) apply -f -
+	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" | $(KUBECTL) apply -f - | sed 's/^/    /'
 
 .PHONY: metallb
 metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-config ## Load the metallb loadbalancer into the cluster
@@ -279,7 +281,7 @@ metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-config ## Load the metall
 cm-is-deployment-ready: | $(BASE) $(KUBECTL) ; $(info --> CERT: Waiting for deployment to be ready) @ ## Is the deployment ready ?
 	@{	\
 		START=$$(date +%s);\
-		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s;\
+		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s |& sed 's/^/    /';\
 		echo "--> CERT: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" ;\
 	}
 
@@ -313,9 +315,9 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 .PHONY: trustmgr-is-deployment-ready
 trustmgr-is-deployment-ready: | $(BASE) $(KUBECTL); $(info --> TRUST: Waiting for deployment to be ready) @ ## Is the deployment up ?
 	@{	\
-		START=$$(date +%s)																						;\
-		$(KUBECTL) wait deployment trust-manager -n cert-manager --for condition=Available=True --timeout=120s	;\
-		echo "--> TRUST: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" 							;\
+		START=$$(date +%s)																											;\
+		$(KUBECTL) wait deployment trust-manager -n cert-manager --for condition=Available=True --timeout=120s |& sed 's/^/    /'	;\
+		echo "--> TRUST: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" 												;\
 	}
 
 POD_SELECTOR_GOGS ?= git
@@ -325,56 +327,77 @@ POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
 git-is-init-done: | $(BASE) $(KUBECTL) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
 	@$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
 
+define INSTALL_KPT_PACKAGE
+	{	\
+		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"				;\
+		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)	;\
+		$(KPT) live init --force |& sed 's/^/    /'										;\
+		$(KPT) live apply |& sed 's/^/    /'											;\
+		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)	;\
+		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"	;\
+	}
+endef
+
+.PHONY: load-image-pull-secret
+load-image-pull-secret: | $(BASE) $(KUBECTL) $(KPT_PKG)
+	@$(KUBECTL) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml |& sed 's/^/    /'
+
+.PHONY: install-external-package-fluentd
+install-external-package-fluentd: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/fluentd,fluentd)
+
+.PHONY: install-external-package-cert-manager
+install-external-package-cert-manager: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/cert-manager,cert-manager)
+
+.PHONY: install-external-package-csi-driver
+install-external-package-csi-driver: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/csi-driver,csi-driver)
+
+.PHONY: install-external-package-trust-manager
+install-external-package-trust-manager: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/trust-manager,trust-manager)
+
+.PHONY: install-external-package-git
+install-external-package-git: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/git,git)
+
+.PHONY: install-external-package-eda-issuer-root
+install-external-package-eda-issuer-root: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-issuer-root,eda root issuer)
+
+.PHONY: install-external-package-eda-issuer-node
+install-external-package-eda-issuer-node: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-issuer-node,eda node issuer)
+
+.PHONY: install-external-package-eda-issuer-api
+install-external-package-eda-issuer-api: | $(BASE) $(KPT) load-image-pull-secret
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-issuer-api,eda api issuer)
+
+INSTALL_EXTERNAL_PACKAGE_LIST=
+INSTALL_EXTERNAL_PACKAGE_LIST += load-image-pull-secret
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-fluentd
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-cert-manager
+INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-deployment-ready
+INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-webhook-ready
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-csi-driver
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-trust-manager
+INSTALL_EXTERNAL_PACKAGE_LIST += trustmgr-is-deployment-ready
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-git
+INSTALL_EXTERNAL_PACKAGE_LIST += git-is-init-done
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-root
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-node
+INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-api
 
 .PHONY: install-external-packages
-install-external-packages: | $(BASE) ## Install external components for EDA core (cert/trust-manager,fluentd,csi,gogs,CA's)
-	@{	\
-		pushd $(KPT_EXT_PKGS)		;\
-		$(KUBECTL) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml ;\
-		pushd fluentd				;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		pushd cert-manager			;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		$(MAKE) -C $(TOP_DIR) cm-is-deployment-ready cm-is-webhook-ready;\
-		pushd csi-driver			;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		pushd trust-manager			;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		$(MAKE) -C $(TOP_DIR) trustmgr-is-deployment-ready;\
-		pushd git					;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		$(MAKE) -C $(TOP_DIR) git-is-init-done;\
-		popd						;\
-		pushd eda-issuer-root		;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		pushd eda-issuer-node		;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		pushd eda-issuer-api		;\
-		$(KPT) live init --force	;\
-		$(KPT) live apply			;\
-		popd						;\
-		popd						;\
-	}
+install-external-packages: | $(BASE) $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install external components for EDA core (cert/trust-manager,fluentd,csi,gogs,CA's)
 
 
 .PHONY: eda-configure-core
 eda-configure-core: ## Configure the EDA core deployment before launching
 	@{	\
 		echo "--> KPT:CORE: Setting cluster parameters in engineconfig"	;\
-		pushd $(KPT_CORE)	;\
+		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 		export cluster_pod_cidr=$$($(GET_POD_CIDR))				;\
 		export cluster_svc_cidr=$$($(GET_SVC_CIDR))				;\
 		export HTTPS_PROXY=$(HTTPS_PROXY)						;\
@@ -397,19 +420,13 @@ eda-configure-core: ## Configure the EDA core deployment before launching
 		NO_PROXY=$${NO_PROXY} \
 		https_proxy=$${https_proxy} \
 		http_proxy=$${http_proxy} \
-		no_proxy=$${no_proxy} ;\
-		popd				;\
+		no_proxy=$${no_proxy} |& sed 's/^/    /' ;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 	}
 
 .PHONY: eda-install-core
 eda-install-core: | $(BASE) $(KPT) ; $(info --> KPT: Launching EDA) @ ## Base install of EDA in a cluster
-	@{	\
-		pushd $(KPT_CORE)				;\
-		$(KPT) live init --force		;\
-		$(KPT) live apply				;\
-		echo "--> KPT: Core resources reconciled";\
-		popd							;\
-	}
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_CORE),EDA CORE)
 
 ENGINECONFIG_CR_NAME ?= engine-config
 .PHONY: is-ce-first-commit-done
@@ -498,33 +515,33 @@ APP_INSTALL_TIMEOUT ?= 600
 
 define INSTALL_APP
 	{	\
-		START=$$(date +%s)													;\
-		export APP=$(1)														;\
-		echo -e "[\033[1;34m$${APP}\033[0m] Installing"						;\
-		$(KUBECTL) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml 	;\
-		MAX_WAIT=$(APP_INSTALL_TIMEOUT)										;\
-		COUNT=0																;\
-		INSTALLED=0															;\
-		ATTEMPTED_INSTALL=0													;\
-		while [ $$COUNT -lt $$MAX_WAIT ]; do								 \
+		START=$$(date +%s)																	;\
+		export APP=$(1)																		;\
+		echo -e "--> INSTALL:APP: [\033[1;34m$${APP}\033[0m] Installing"					;\
+		$(KUBECTL) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml |& sed "s/^/    /"	;\
+		MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
+		COUNT=0																				;\
+		INSTALLED=0																			;\
+		ATTEMPTED_INSTALL=0																	;\
+		while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
 			state=$$($(KUBECTL) get appinstalls.appstore.eda.nokia.com $$APP.$(APP_VENDOR) --no-headers -o=jsonpath='{.status.Stage}');\
-			if [[ "$${state}" == "Installed" ]]; then						 \
-				INSTALLED=1													;\
-				break														;\
-			fi																;\
-			ATTEMPTED_INSTALL=1												;\
-			COUNT=$$((COUNT + 1))											;\
-			sleep 1 														;\
-		done 																;\
-		if [ $$INSTALLED -ne 1 ] ; then										 \
-			echo															;\
-			$(KUBECTL) get transactionresults -o yaml						;\
-			$(KUBECTL) get appinstalls -o yaml								;\
-			echo "└─ Failed: [$${APP}] Did not reach installed state in $${COUNT}s, it is in $${state}" ;\
-			exit 1 															;\
-		else																 \
-			echo -e "[\033[0;32m$${APP}\033[0m] Installed in $$(( $$(date +%s) - $$START ))s" ;\
-		fi																	;\
+			if [[ "$${state}" == "Installed" ]]; then										 \
+				INSTALLED=1																	;\
+				break																		;\
+			fi																				;\
+			ATTEMPTED_INSTALL=1																;\
+			COUNT=$$((COUNT + 1))															;\
+			sleep 1 																		;\
+		done 																				;\
+		if [ $$INSTALLED -ne 1 ] ; then														 \
+			echo																			;\
+			$(KUBECTL) get transactionresults -o yaml										;\
+			$(KUBECTL) get appinstalls -o yaml												;\
+			echo "--> INSTALL:APP: [\033[0;31m$${APP}\033[0m] Failed to install did not reach installed state in $${COUNT}s, it is in $${state}" ;\
+			exit 1 																			;\
+		else																				 \
+			echo -e "--> INSTALL:APP: [\033[0;32m$${APP}\033[0m] Installed in $$(( $$(date +%s) - $$START ))s" ;\
+		fi																					;\
 	}
 endef
 
@@ -614,7 +631,7 @@ is-apps-registry-reachable: ## Can the EDA AppStore image registry be reached ?
 
 .PHONY: eda-install-apps
 eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is-apps-registry-reachable ## Install EDA apps from the appstore catalog
-	@echo "--> APP_INSTALL: Installing apps from catalog $(CATALOG)"
+	@echo "--> INSTALL:APP: Installing apps from catalog $(CATALOG)"
 	@{	\
 		for app in $(APPS_INSTALL_SEQ_LIST_BUILTIN)	;\
 		do									 \
@@ -625,21 +642,21 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is
 	@echo $(APPS_INSTALL_LIST_BUILTIN) | tr ' ' '\n' | \
 		xargs -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
 
-
-.PHONY: eda-bootstrap
-eda-bootstrap: | $(BASE) $(KPT); $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
+.PHONY: eda-configure-playground
+eda-configure-playground:
 	@{	\
-		pushd $(KPT_PLAYGROUND)			;\
-		$(KPT) live init --force		;\
-		echo "--> KPT: Setting SRL Image: $(SRL_24_7_1_GHCR)";\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) ;\
-		$(KPT) live apply				;\
-		echo "--> KPT: Playground resources reconciled";\
-		popd							;\
+		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
+		echo "--> KPT: Setting SRL Image: $(SRL_24_7_1_GHCR)"																		;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) |& sed 's/^/    /' ;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)						;\
 	}
 
+.PHONY: eda-bootstrap
+eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_PLAYGROUND),EDA PLAYGROUND)
+
 .PHONY: topology-load
-topology-load:  ## Load a topology file TOPO=<file>, default is topology/01-3node-srl-24.3.2.yaml
+topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
 		$(KUBECTL) apply -f $(TOPO)				;\
@@ -651,7 +668,7 @@ topology-load:  ## Load a topology file TOPO=<file>, default is topology/01-3nod
 			echo "--> TOPO: Waiting for $$POD_NAME to be in Running state...";\
 			sleep 5											;\
 		done												;\
-		$(KUBECTL) exec -it $$POD_NAME -- bash -c "/app/api-server-topo";\
+		$(KUBECTL) exec -it $$POD_NAME -- bash -c "/app/api-server-topo" | sed 's/^/    /';\
 	}
 
 .PHONY: start-ui-port-forward
@@ -769,8 +786,8 @@ list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the e
 
 .PHONY: try-eda
 try-eda: | download-tools download-pkgs update-pkgs kind install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
-	@echo "EDA is launched"
-	@echo "The UI port forward can be started using 'make start-ui-port-forward'"
+	@echo "--> INFO: EDA is launched"
+	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
 .PHONY: help
 help:  ## Show the help menu
