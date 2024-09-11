@@ -784,15 +784,15 @@ LIST_SETTER_CMD := $(KPT) fn eval --image gcr.io/kpt-fn/list-setters:v0.1.0 --tr
 
 define show-kpt-setter-in-dir
 	{	\
-		pushd $1	;\
-		$(LIST_SETTER_CMD)	;\
-		popd				;\
+		pushd $1 &> /dev/null	;\
+		$(LIST_SETTER_CMD)		;\
+		popd &> /dev/null		;\
 	}
 endef
 
 .PHONY: list-kpt-setters-core
 list-kpt-setters-core: | $(KPT) ## Show the available kpt setter for the eda-core package
-	$(call show-kpt-setter-in-dir,$(KPT_CORE))
+	@$(call show-kpt-setter-in-dir,$(KPT_CORE))
 
 .PHONY: list-kpt-setters-external-packages
 list-kpt-setters-external-packages: | $(KPT) ## Show the available kpt setter for the external-packages
