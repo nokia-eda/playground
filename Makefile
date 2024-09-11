@@ -33,7 +33,10 @@ http_proxy ?= ""
 no_proxy ?= ""
 LLM_API_KEY ?= ""
 
-OS := $(shell uname | tr '[:upper:]' '[:lower:]')
+# i.e Darwin / Linux
+UNAME := $(shell uname)
+# Lowercase - sane version
+OS := $(shell echo "$(UNAME)" | tr '[:upper:]' '[:lower:]')
 
 APPLY_SETTER_IMG=ghcr.io/srl-labs/kpt-apply-setters:0.1.1
 
@@ -69,6 +72,7 @@ GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g
 KIND := $(TOOLS)/kind
 KUBECTL := $(TOOLS)/kubectl
 KPT ?= $(TOOLS)/kpt
+K9S ?= $(TOOLS)/k9s
 YQ ?= $(TOOLS)/yq
 CURL := curl --silent --fail --show-error
 
@@ -86,6 +90,8 @@ K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/connect-k8s-helm
 KIND_SRC := https://kind.sigs.k8s.io/dl/v0.17.0/kind-$(OS)-$(ARCH)
 KUBECTL_SRC := https://dl.k8s.io/release/v1.25.3/bin/$(OS)/$(ARCH)/kubectl
 KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/v1.0.0-beta.44/kpt_$(OS)_$(ARCH)
+# K9s uses the uname directly in its package name
+K9S_SRC := https://github.com/derailed/k9s/releases/download/v0.32.5/k9s_$(UNAME)_$(ARCH).tar.gz
 YQ_SRC := https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_$(OS)_$(ARCH)
 
 ## Create working directories
@@ -98,10 +104,20 @@ $(TOOLS): | $(BASE); $(info --> Creating a tools dir: $(TOOLS))
 
 ## Download all the tools
 .PHONY: download-tools
-download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) ## Download tools kind, kubectl, kpt into tools/
+download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) $(K9S) ## Download required and useful tools
 
 define download-bin
 	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi
+endef
+
+# $1 - Output binary name to extract from the archive
+# $2 - URL to download it from
+# $3 - where should tar extract this file ?
+# $4 - What is the path/filename inside the archive ?
+# $5 - tar options if its compressed etc
+# This does assume that $(1) on disk is equal to $(3)/$(4) where $(4) is the path+name of the bin inside the archive
+define download-bin-from-archive
+	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) -C $(3) $(4) && chmod +x $(1); fi 
 endef
 
 $(KIND): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kind is present in $(KIND))
@@ -112,6 +128,9 @@ $(KUBECTL): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kubectl is present i
 
 $(KPT): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kpt is present in $(KPT))
 	@$(call download-bin,$(KPT),$(KPT_SRC))
+
+$(K9S): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring k9s is present in $(K9S))
+	@$(call download-bin-from-archive,$(K9S),$(K9S_SRC),$(TOOLS),k9s,z)
 
 $(YQ): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring yq is present in $(YQ))
 	@$(call download-bin,$(YQ),$(YQ_SRC))
