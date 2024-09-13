@@ -9,7 +9,7 @@ BASE=$(CURDIR)
 ## Top level options
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
-TOPO ?= $(TOP_DIR)/topology/3-nodes-srl-ghcr-topo-config.yaml
+TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
 ARCH_QUERY := $(shell uname -m)
@@ -674,11 +674,16 @@ eda-configure-playground:
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PLAYGROUND),EDA PLAYGROUND)
 
+.PHONY: template-topology
+template-topology:  ## Create topology config-map from the topology input
+	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
+
+
 .PHONY: topology-load
 topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
-		$(KUBECTL) apply -f $(TOPO)				;\
+		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL) apply -f -				;\
 		echo "--> TOPO: config created in cluster"			;\
 		export POD_NAME=$$($(KUBECTL) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
@@ -713,34 +718,34 @@ open-toolbox: ## Log into the toolbox pod
 e9s: ## Run e9s application
 	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
-# DUT CLI access
-define DUT_CLI
+# NODE CLI access
+define NODE_CLI
 	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
 endef
 
-.PHONY: dut-ssh
-dut-ssh: ## Connect to a dut, specify name using DUT=dut2-1
+.PHONY: node-ssh
+node-ssh: ## Connect to a node, specify name using NODE=leaf1-1
 	@{  \
-		if [[ -z "$(DUT)" ]]; then \
-			echo "[ERROR] Please specify the name of the dut using DUT=<name>";\
-			echo "        Available duts are:" ;\
+		if [[ -z "$(NODE)" ]]; then \
+			echo "[ERROR] Please specify the name of the node using NOODE=<name>";\
+			echo "        Available nodes are:" ;\
 			echo "$$($(KUBECTL) get pods -l cx-cluster-name=eda -o=jsonpath='{.items[*].metadata.labels.cx-pod-name}')" | sed 's/^/        /';\
 			exit 1;\
 		fi;\
 	}
-	$(call DUT_CLI,$(DUT))
+	$(call NODE_CLI,$(NODE))
 
-.PHONY: dut1-ssh
-dut1-ssh: ## Connect to dut1
-	$(call DUT_CLI,dut1-1)
+.PHONY: leaf1-ssh
+leaf1-ssh: ## Connect to leaf1
+	$(call NODE_CLI,leaf1-1)
 
-.PHONY: dut2-ssh
-dut2-ssh: ## Connect to dut2
-	$(call DUT_CLI,dut2-1)
+.PHONY: leaf2-ssh
+leaf2-ssh: ## Connect to leaf2
+	$(call NODE_CLI,leaf2-1)
 
-.PHONY: dut3-ssh
-dut3-ssh: ## Connect to dut3
-	$(call DUT_CLI,dut3-1)
+.PHONY: spine1-ssh
+spine1-ssh: ## Connect to spine1
+	$(call NODE_CLI,spine1-1)
 
 ##@ Cleanup
 
