@@ -45,7 +45,7 @@ SRL_IMAGE_REGISTRY=ghcr.io/nokia
 
 # Set the SRL Image to the arm variant if we're on arm64
 ifeq ($(ARCH), arm64)
-  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-arm-preview
+  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-arm-preview
 else
   SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-330
 endif
@@ -300,7 +300,7 @@ metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-config ## Load the metall
 cm-is-deployment-ready: | $(BASE) $(KUBECTL) ; $(info --> CERT: Waiting for deployment to be ready) @ ## Is the deployment ready ?
 	@{	\
 		START=$$(date +%s);\
-		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s |& sed 's/^/    /';\
+		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /';\
 		echo "--> CERT: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" ;\
 	}
 
@@ -335,7 +335,7 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 trustmgr-is-deployment-ready: | $(BASE) $(KUBECTL); $(info --> TRUST: Waiting for deployment to be ready) @ ## Is the deployment up ?
 	@{	\
 		START=$$(date +%s)																											;\
-		$(KUBECTL) wait deployment trust-manager -n cert-manager --for condition=Available=True --timeout=120s |& sed 's/^/    /'	;\
+		$(KUBECTL) wait deployment trust-manager -n cert-manager --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /'	;\
 		echo "--> TRUST: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" 												;\
 	}
 
@@ -350,8 +350,8 @@ define INSTALL_KPT_PACKAGE
 	{	\
 		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"				;\
 		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)	;\
-		$(KPT) live init --force |& sed 's/^/    /'										;\
-		$(KPT) live apply |& sed 's/^/    /'											;\
+		$(KPT) live init --force 2>&1 | sed 's/^/    /'										;\
+		$(KPT) live apply 2>&1 | sed 's/^/    /'											;\
 		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)	;\
 		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"	;\
 	}
@@ -359,7 +359,7 @@ endef
 
 .PHONY: load-image-pull-secret
 load-image-pull-secret: | $(BASE) $(KUBECTL) $(KPT_PKG)
-	@$(KUBECTL) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml |& sed 's/^/    /'
+	@$(KUBECTL) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | sed 's/^/    /'
 
 .PHONY: install-external-package-fluentd
 install-external-package-fluentd: | $(BASE) $(KPT) load-image-pull-secret
@@ -439,7 +439,7 @@ eda-configure-core: ## Configure the EDA core deployment before launching
 		NO_PROXY=$${NO_PROXY} \
 		https_proxy=$${https_proxy} \
 		http_proxy=$${http_proxy} \
-		no_proxy=$${no_proxy} |& sed 's/^/    /' ;\
+		no_proxy=$${no_proxy} 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 	}
 
@@ -490,7 +490,7 @@ define WAIT_FOR_DEP
 					echo -e "--> LAUNCH: [\033[1;35m$1\033[0m] Waiting for deployment to be created";\
 					INFO_1=1												;\
 				fi															;\
-				sleep 2s													;\
+				sleep 2													;\
 			else															 \
 				avail_rep=$$($(KUBECTL) get deployments.apps $1 -ojsonpath='{.status.availableReplicas}')	;\
 				if [[ $${avail_rep} -eq 1 ]]; then							 \
@@ -501,7 +501,7 @@ define WAIT_FOR_DEP
 						echo -e "--> LAUNCH: [\033[1;34m$1\033[0m] Waiting for deployment to be ready";\
 						INFO_2=1											;\
 					fi														;\
-					sleep 2s												;\
+					sleep 2												;\
 				fi															;\
 			fi																;\
 		done																;\
@@ -513,7 +513,7 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 	@$(call WAIT_FOR_DEP,eda-ce)
 
 	@echo $(CE_CHILDREN_DEPLOYMENTS_LIST) | tr ' ' '\n' | \
-		xargs -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'
+		xargs -S 2048 -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'
 
 .PHONY: eda-is-core-ready
 eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done is-apps-registry-reachable is-apps-catalog-operational ## Flight checks if core is ready
@@ -537,7 +537,7 @@ define INSTALL_APP
 		START=$$(date +%s)																	;\
 		export APP=$(1)																		;\
 		echo -e "--> INSTALL:APP: [\033[1;34m$${APP}\033[0m] Installing"					;\
-		$(KUBECTL) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml |& sed "s/^/    /"	;\
+		$(KUBECTL) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml 2>&1 | sed "s/^/    /"	;\
 		MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
 		COUNT=0																				;\
 		INSTALLED=0																			;\
@@ -659,14 +659,14 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is
 	}
 
 	@echo $(APPS_INSTALL_LIST_BUILTIN) | tr ' ' '\n' | \
-		xargs -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
+		xargs -S 2048 -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
 
 .PHONY: eda-configure-playground
 eda-configure-playground:
 	@{	\
 		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
 		echo "--> KPT: Setting SRL Image: $(SRL_24_7_1_GHCR)"																		;\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) |& sed 's/^/    /' ;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)						;\
 	}
 
@@ -785,7 +785,7 @@ logs-collect: | $(KUBECTL) ## Get the logs from the cluster LOGS_DEST=<custom lo
 
 ##@ View config options
 
-LIST_SETTER_CMD := $(KPT) fn eval --image gcr.io/kpt-fn/list-setters:v0.1.0 --truncate-output=false |& grep -v -e '^\[RUNNING\].*$$' -e'^\[PASS\].*$$' -e'\ *Results\:.*$$' | awk '{$$1=$$1;print}'
+LIST_SETTER_CMD := $(KPT) fn eval --image gcr.io/kpt-fn/list-setters:v0.1.0 --truncate-output=false 2>&1 | grep -v -e '^\[RUNNING\].*$$' -e'^\[PASS\].*$$' -e'\ *Results\:.*$$' | awk '{$$1=$$1;print}'
 
 define show-kpt-setter-in-dir
 	{	\
@@ -809,7 +809,7 @@ list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the e
 
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs kind install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
