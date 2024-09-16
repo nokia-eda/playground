@@ -19,6 +19,13 @@ else
 	ARCH := $(ARCH_QUERY)
 endif
 
+OS_QUERY := $(shell uname -s)
+ifeq ($(OS_QUERY), Darwin)
+	XARGS_CMD ?= xargs -S 2048
+else
+	XARGS_CMD ?= xargs
+endif
+
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
 EXT_HTTP_PORT ?= 9200
 EXT_HTTPS_PORT ?= 9443
@@ -513,7 +520,7 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 	@$(call WAIT_FOR_DEP,eda-ce)
 
 	@echo $(CE_CHILDREN_DEPLOYMENTS_LIST) | tr ' ' '\n' | \
-		xargs -S 2048 -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'
+		$(XARGS_CMD) -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'
 
 .PHONY: eda-is-core-ready
 eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done is-apps-registry-reachable is-apps-catalog-operational ## Flight checks if core is ready
@@ -659,7 +666,7 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is
 	}
 
 	@echo $(APPS_INSTALL_LIST_BUILTIN) | tr ' ' '\n' | \
-		xargs -S 2048 -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
+		$(XARGS_CMD) -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
 
 .PHONY: eda-configure-playground
 eda-configure-playground:
