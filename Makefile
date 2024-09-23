@@ -225,7 +225,7 @@ kind-load-images: ## Load eda core images into the kind cluster
 ## Cluster launch
 
 .PHONY: kind
-kind: cluster cluster-wait-for-node-ready metallb ## Launch a single node KinD cluster (K8S inside Docker)
+kind: cluster cluster-wait-for-node-ready $(if $(NO_LB),,metallb) ## Launch a single node KinD cluster (K8S inside Docker)
 
 .PHONY: cluster
 cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
@@ -241,7 +241,6 @@ cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
 		else																				 \
 			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
 		fi																					;\
-		$(KUBECTL) apply -f $(CFG)/install-kindnet-bridge.yaml | sed 's/^/    /'			;\
 	}
 
 .PHONY: cluster-wait-for-node-ready
@@ -719,7 +718,7 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 
 .PHONY: open-toolbox
 open-toolbox: ## Log into the toolbox pod
-	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -l
+	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash
 
 .PHONY: e9s
 e9s: ## Run e9s application
