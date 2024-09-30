@@ -9,7 +9,7 @@ BASE=$(CURDIR)
 ## Top level options
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
-TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
+TOPO ?= $(TOP_DIR)/topology/3-nodes-srl-24-7-2.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
 ARCH_QUERY := $(shell uname -m)
@@ -53,8 +53,10 @@ SRL_IMAGE_REGISTRY=ghcr.io/nokia
 # Set the SRL Image to the arm variant if we're on arm64
 ifeq ($(ARCH), arm64)
   SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-arm-preview
+  SRL_24_7_2_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-arm-preview
 else
   SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-330
+  SRL_24_7_2_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-319
 endif
 
 ## Level 2 options
