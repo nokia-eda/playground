@@ -183,7 +183,7 @@ login-registry: ## Log in to the core image registries
 # where you may load the images to the kind cluster to avoid
 # pulling them from the repo
 
-RELEASE_TAG=24.8.1-rc
+RELEASE_TAG ?= 24.8.2
 
 CONTAINER_IMAGES := \
 	"$(CORE_IMAGE_REGISTRY)/core/eda-keycloak:$(RELEASE_TAG)" \
