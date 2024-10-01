@@ -3,9 +3,18 @@
 # and the default values specified in the Makefile.
 # To enable an option simply uncomment a line and give it a value
 
-# Use a diffirent kind cluster name
+# KinD cluster options
 # -----------------------------------------------------------------------------|
+# Do not deploy the kind cluster
+# Uncomment this variable to perform playground installation
+# on an already available k8s cluster
+# NO_KIND := yes
+
+# Use a diffirent kind cluster name
 # KIND_CLUSTER_NAME := eda-demo2
+
+# Do not install metallb as part of the kind cluster
+# NO_LB := yes
 
 # How do clients reach your cluster?
 #  EXT_DOMAIN_NAME can also be set to an ipv4/6 address if no domain record
