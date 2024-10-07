@@ -12,9 +12,12 @@ KIND_CLUSTER_NAME ?= eda-demo
 TOPO ?= $(TOP_DIR)/topology/3-nodes-srl-24-7-2.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
+
 ARCH_QUERY := $(shell uname -m)
 ifeq ($(ARCH_QUERY), x86_64)
 	ARCH := amd64
+else ifeq ($(ARCH_QUERY),$(filter $(ARCH_QUERY), arm64 aarch64))
+	ARCH := arm64
 else
 	ARCH := $(ARCH_QUERY)
 endif
