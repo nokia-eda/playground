@@ -4,7 +4,15 @@ SHELL = /usr/bin/env bash -o pipefail
 TOP_DIR := $(abspath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BASE=$(CURDIR)
 
--include $(TOP_DIR)/prefs.mk
+PLAYGROUND_PREFS_FILE ?= prefs.mk
+PG_PREFS_REAL_LOC := $(realpath $(PLAYGROUND_PREFS_FILE))
+ifeq ($(PG_PREFS_REAL_LOC),)
+$(error "Preferences file $(PLAYGROUND_PREFS_FILE) not found")
+endif
+$(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
+-include $(PG_PREFS_REAL_LOC)
+exit 1
+
 
 ## Top level options
 BUILD ?= build
