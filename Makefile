@@ -11,7 +11,6 @@ $(error "Preferences file $(PLAYGROUND_PREFS_FILE) not found")
 endif
 $(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
 -include $(PG_PREFS_REAL_LOC)
-exit 1
 
 
 ## Top level options
@@ -243,6 +242,10 @@ kind: cluster cluster-wait-for-node-ready $(if $(NO_LB),,metallb) ## Launch a si
 .PHONY: cluster
 cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
 	@{	\
+		cp $(CFG)/kind.yaml $(BUILD)/kind.yaml; \
+		if [ ! -z "$(KIND_API_SERVER_ADDRESS)" ]; then \
+			$(YQ) eval ".networking.apiServerAddress = \"$(KIND_API_SERVER_ADDRESS)\"" -i $(BUILD)/kind.yaml; \
+		fi; \
 		MATCHED=0																			;\
 		for cluster in $$($(KIND) get clusters); do 										 \
 			if [[ "$${cluster}" == "$(KIND_CLUSTER_NAME)" ]]; then							 \
@@ -250,7 +253,7 @@ cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
 			fi																				;\
 		done																				;\
 		if [[ "$${MATCHED}" == "0" ]]; then													 \
-			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(CFG)/kind.yaml	;\
+			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml	;\
 		else																				 \
 			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
 		fi																					;\

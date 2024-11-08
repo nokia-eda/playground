@@ -5,6 +5,7 @@ networking:
   ipFamily: dual
   # if you want to expose the kind cluster externally
   # change the API server address from loopback to the desired IP
+  # via KIND_API_SERVER_ADDRESS make variable
   apiServerAddress: "127.0.0.1"
 nodes:
   - role: control-plane
