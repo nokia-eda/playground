@@ -1,0 +1,11 @@
+[Unit]
+Description=EDA UI Port Forwarding Service
+After=network.target
+
+[Service]
+ExecStart=__make -C __pg_path start-ui-port-forward &
+User=__user
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

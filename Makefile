@@ -717,6 +717,21 @@ topology-load:  ## Load a topology file TOPO=<file>
 		$(KUBECTL) exec -it $$POD_NAME -- bash -c "/app/api-server-topo" | sed 's/^/    /';\
 	}
 
+.PHONY: enable-ui-port-forward-service
+enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port forward systemd service
+	@{ \
+		MAKE_PATH=$$(which make); \
+		SVC_NAME="eda-ui.service"; \
+		CUR_USER=$$(id -un); \
+		sed "s|__make|$${MAKE_PATH}|g; s|__pg_path|$(TOP_DIR)|g; s|__user|$${CUR_USER}|g" $(CFG)/$${SVC_NAME} | sudo tee /etc/systemd/system/$${SVC_NAME} > /dev/null; \
+		sudo systemctl daemon-reload; \
+		sudo systemctl enable $${SVC_NAME}; \
+		sudo systemctl start $${SVC_NAME}; \
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
+		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"; \
+	}
+
 .PHONY: start-ui-port-forward
 start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to the host at port 9200
 	@{	\
