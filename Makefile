@@ -851,9 +851,25 @@ list-kpt-setters-external-packages: | $(KPT) ## Show the available kpt setter fo
 list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the eda-playground package
 	@$(call show-kpt-setter-in-dir,$(KPT_PLAYGROUND))
 
+.PHONY: kpt-set-arm-images
+kpt-set-arm-images: | $(KPT) ## Set ARM versions of the images
+	@{	\
+		$(KPT) fn eval eda-kpt --image $(APPLY_SETTER_IMG) --truncate-output=false -- \
+			CMCA_IMG="quay.io/jetstack/cert-manager-cainjector:v1.14.4" \
+			TRUSTMGRBUNDLE_IMG="quay.io/jetstack/cert-manager-package-debian:20210119.0" \
+			TRUSTMGR_IMG="quay.io/jetstack/trust-manager:v0.9.1" \
+			CMCT_IMG="quay.io/jetstack/cert-manager-controller:v1.14.4" \
+			CMWH_IMG="quay.io/jetstack/cert-manager-webhook:v1.14.4" \
+			CSI_DRIVER_IMG="quay.io/jetstack/cert-manager-csi-driver:v0.8.0"
+			FB_IMG="cr.fluentbit.io/fluent/fluent-bit:3.0.7" \
+			GOGS_IMG_TAG="ghcr.io/gogs/gogs:0.13" \
+			CSI_REGISTRAR_IMG="k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0" \
+			CSI_LIVPROBE_IMG="registry.k8s.io/sig-storage/livenessprobe:v2.12.0" 2>&1 | sed 's/^/    /' ;\
+	}
+
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(ARM),kpt-set-arm-images,) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
