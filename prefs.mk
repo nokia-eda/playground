@@ -10,6 +10,9 @@
 # on an already available k8s cluster
 # NO_KIND := yes
 
+# Use a custom kind configuration file
+# KIND_CONFIG_FILE := private/kind-ingress-config.yml
+
 # Use a diffirent kind cluster name
 # KIND_CLUSTER_NAME := eda-demo2
 

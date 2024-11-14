@@ -78,6 +78,13 @@ TIMEOUT_NODE_READY ?= 600s
 
 CFG := $(TOP_DIR)/configs
 
+KIND_CONFIG_FILE ?= $(CFG)/kind.yaml
+KIND_CONFIG_REAL_LOC := $(realpath $(KIND_CONFIG_FILE))
+ifeq ($(KIND_CONFIG_REAL_LOC),)
+$(error "KIND config file $(KIND_CONFIG_REAL_LOC) not found")
+endif
+$(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
+
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
 KPT_PLAYGROUND := $(KPT_PKG)/eda-kpt-playground
@@ -240,9 +247,9 @@ kind-load-images: ## Load eda core images into the kind cluster
 kind: cluster cluster-wait-for-node-ready $(if $(NO_LB),,metallb) ## Launch a single node KinD cluster (K8S inside Docker)
 
 .PHONY: cluster
-cluster: | $(KIND) $(KUBECTL); $(info --> KIND: Ensuring control-plane exists)
+cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane exists)
 	@{	\
-		cp $(CFG)/kind.yaml $(BUILD)/kind.yaml; \
+		cp $(KIND_CONFIG_REAL_LOC) $(BUILD)/kind.yaml; \
 		if [ ! -z "$(KIND_API_SERVER_ADDRESS)" ]; then \
 			$(YQ) eval ".networking.apiServerAddress = \"$(KIND_API_SERVER_ADDRESS)\"" -i $(BUILD)/kind.yaml; \
 		fi; \
