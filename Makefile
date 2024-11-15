@@ -227,10 +227,10 @@ CONTAINER_IMAGES := \
 	"$(CORE_IMAGE_REGISTRY)/core/fluent-bit:3.0.7-amd64" \
 	"$(CORE_IMAGE_REGISTRY)/core/cxdp:$(RELEASE_TAG)" \
 	"$(CORE_IMAGE_REGISTRY)/core/npp:$(RELEASE_TAG)" \
-	"$(SRL_24_7_1_GHCR)"
+	"$(SRL_24_7_2_GHCR)"
 
 .PHONY: pull-images
-pull-images: | login-registry ## Pull eda core images
+pull-images: | login-registry $(if $(ARM),kpt-set-arm-images,) ## Pull eda core images
 	@for image in $(CONTAINER_IMAGES); do \
 	docker pull $$image & \
 	done; wait
@@ -694,8 +694,10 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is
 eda-configure-playground:
 	@{	\
 		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
-		echo "--> KPT: Setting SRL Image: $(SRL_24_7_1_GHCR)"																		;\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) 2>&1 | sed 's/^/    /' ;\
+		echo "--> KPT: Setting SR Linux images: $(SRL_24_7_1_GHCR) $(SRL_24_7_2_GHCR)"	;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- \
+			SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) \
+			SRL_24_7_2_GHCR=$(SRL_24_7_2_GHCR) 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)						;\
 	}
 
@@ -860,9 +862,9 @@ kpt-set-arm-images: | $(KPT) ## Set ARM versions of the images
 			TRUSTMGR_IMG="quay.io/jetstack/trust-manager:v0.9.1" \
 			CMCT_IMG="quay.io/jetstack/cert-manager-controller:v1.14.4" \
 			CMWH_IMG="quay.io/jetstack/cert-manager-webhook:v1.14.4" \
-			CSI_DRIVER_IMG="quay.io/jetstack/cert-manager-csi-driver:v0.8.0"
+			CSI_DRIVER_IMG="quay.io/jetstack/cert-manager-csi-driver:v0.8.0" \
 			FB_IMG="cr.fluentbit.io/fluent/fluent-bit:3.0.7" \
-			GOGS_IMG_TAG="ghcr.io/gogs/gogs:0.13" \
+			GOGS_IMG_TAG="docker.io/gogs/gogs:0.13" \
 			CSI_REGISTRAR_IMG="k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0" \
 			CSI_LIVPROBE_IMG="registry.k8s.io/sig-storage/livenessprobe:v2.12.0" 2>&1 | sed 's/^/    /' ;\
 	}
