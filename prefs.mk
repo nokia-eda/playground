@@ -54,3 +54,11 @@
 # -----------------------------------------------------------------------------|
 
 # LLM_API_KEY ?= ""
+
+# KPT Core setters config file
+#  A path to the apply-setters function config file that holds the values
+#  you intend to apply to the EDA Core packages.
+#  See config/kpt-core-setters.yml for an example.
+# -----------------------------------------------------------------------------|
+
+# KPT_CORE_SETTERS_FILE := private/kpt-core-setters.yml

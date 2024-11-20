@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apply-setters-fn-config
+data:
+  # API_IMG: ghcr.io/nokia-eda/core/api-server:24.8.2
+  # API_REPLICAS: 1
+  # APP_REGISTRY: ghcr.io
+  # ASC_IMG: ghcr.io/nokia-eda/core/appstore-server:24.8.2
+  # ASVR_IMG: ghcr.io/nokia-eda/core/artifact-server:24.8.2
+  # BSVR_IMG: ghcr.io/nokia-eda/core/bootstrap-server:24.8.2
+  # CE_IMG: ghcr.io/nokia-eda/core/config-engine:24.8.2
+  # CLUSTER_MEMBER_NAME: engine-config
+  # CORE_IMG_CREDENTIALS: gitlab-core
+  # CXDP_IMG: ghcr.io/nokia-eda/core/cxdp:24.8.2
+  # CX_IMG: ghcr.io/nokia-eda/core/cx:24.8.2
+  # EDA_TOOLBOX_IMG: ghcr.io/nokia-eda/core/eda-toolbox:24.8.2
+  # EXT_DOMAIN_NAME: cluster1.lab.eda.dev
+  # EXT_HTTPS_PORT: 443
+  # EXT_HTTP_PORT: 9200
+  # EXT_IPV4_ADDR: "10.1.0.11"
+  # EXT_IPV6_ADDR: "3fff:172:20:20::1"
+  # FE_IMG: ghcr.io/nokia-eda/core/flow-engine:24.8.2
+  # GIT_REPO_APPS: /eda/apps.git
+  # GIT_REPO_CHECKPOINT: /eda/customresources.git
+  # GIT_REPO_IDENTITY: /eda/identity.git
+  # GIT_REPO_SECURTIY: /eda/credentials.git
+  # GIT_REPO_USER_SETTINGS: /eda/usersettings.git
+  # GIT_SERVERS: [, ]
+  # KC_IMG: ghcr.io/nokia-eda/core/eda-keycloak:24.8.2
+  # LLM_API_KEY: some-key
+  # LLM_MODEL: gpt-4o
+  # NO_PROXY: 10.244.0.0/16,fd00:10:244::/56,.local,.svc,eda-git,eda-git-replica
+  # NPP_IMG: ghcr.io/nokia-eda/core/npp:24.8.2
+  # PG_IMG: ghcr.io/nokia-eda/core/eda-postgres:24.8.2
+  # SA_IMG: ghcr.io/nokia-eda/core/state-aggregator:24.8.2
+  # SA_REPLICAS: 1
+  # SC_IMG: ghcr.io/nokia-eda/core/state-controller:24.8.2
+  # SECRET_KC_ADMIN_PASSWORD: pass
+  # SECRET_KC_ADMIN_USERNAME: user
+  # SECRET_PG_DB_PASSWORD: secret
+  # SECRET_PG_DB_USERNAME: user
+  # SE_IMG: ghcr.io/nokia-eda/core/state-engine:24.8.2
+  # SE_REPLICAS: 1
+  # SIMULATE: true
+  # SINGLESTACK_SVCS: false
+  # TM_IMG: ghcr.io/nokia-eda/core/testman:24.8.2
+  # no_proxy: 10.244.0.0/16,fd00:10:244::/56,.local,.svc,eda-git,eda-git-replica

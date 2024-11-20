@@ -85,6 +85,14 @@ $(error "KIND config file $(KIND_CONFIG_REAL_LOC) not found")
 endif
 $(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
 
+KPT_CORE_SETTERS_FILE ?= $(CFG)/kpt-core-setters.yaml
+KPT_CORE_SETTERS_REAL_LOC := $(realpath $(KPT_CORE_SETTERS_FILE))
+KPT_CORE_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-core-setters.yaml
+ifeq ($(KPT_CORE_SETTERS_REAL_LOC),)
+$(error "KPT EDA Core setters file $(KIND_CONFIG_REAL_LOC) not found")
+endif
+$(info --> INFO: Using $(KPT_CORE_SETTERS_REAL_LOC) KPT EDA Core setters file)
+
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
 KPT_PLAYGROUND := $(KPT_PKG)/eda-kpt-playground
@@ -442,7 +450,7 @@ install-external-packages: | $(BASE) $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install
 
 
 .PHONY: eda-configure-core
-eda-configure-core: ## Configure the EDA core deployment before launching
+eda-configure-core: | $(BUILD) ## Configure the EDA core deployment before launching
 	@{	\
 		echo "--> KPT:CORE: Setting cluster parameters in engineconfig"	;\
 		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
@@ -454,21 +462,24 @@ eda-configure-core: ## Configure the EDA core deployment before launching
 		export https_proxy=$(https_proxy)						;\
 		export http_proxy=$(http_proxy)							;\
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
+		cp $(KPT_CORE_SETTERS_REAL_LOC) $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval --no-doc '... comments=""' -i $(KPT_CORE_SETTERS_WORK_FILE);\
+		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTPS_PROXY = \"$(HTTPS_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTP_PROXY = \"$(HTTP_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.NO_PROXY = \"$(NO_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.https_proxy = \"$(https_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.http_proxy = \"$(http_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.no_proxy = \"$(no_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
-		-- SINGLESTACK_SVCS=$(SINGLESTACK_SVCS) \
-		LLM_API_KEY=$(LLM_API_KEY) \
-		EXT_DOMAIN_NAME=$(EXT_DOMAIN_NAME) \
-		EXT_HTTP_PORT=$(EXT_HTTP_PORT) \
-		EXT_HTTPS_PORT=$(EXT_HTTPS_PORT) \
-		EXT_IPV4_ADDR=$(EXT_IPV4_ADDR) \
-		EXT_IPV6_ADDR=$(EXT_IPV6_ADDR) \
-		HTTPS_PROXY=$${HTTPS_PROXY} \
-		HTTP_PROXY=$${HTTP_PROXY} \
-		NO_PROXY=$${NO_PROXY} \
-		https_proxy=$${https_proxy} \
-		http_proxy=$${http_proxy} \
-		no_proxy=$${no_proxy} 2>&1 | sed 's/^/    /' ;\
+		--fn-config $(KPT_CORE_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 	}
 
