@@ -471,12 +471,12 @@ eda-configure-core: | $(BUILD) ## Configure the EDA core deployment before launc
 		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTPS_PROXY = \"$(HTTPS_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTP_PROXY = \"$(HTTP_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.NO_PROXY = \"$(NO_PROXY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.https_proxy = \"$(https_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.http_proxy = \"$(http_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.no_proxy = \"$(no_proxy)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
 		--fn-config $(KPT_CORE_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
