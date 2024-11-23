@@ -13,7 +13,7 @@
 # Use a custom kind configuration file
 # KIND_CONFIG_FILE := private/kind-ingress-config.yml
 
-# Use a diffirent kind cluster name
+# Use a different kind cluster name
 # KIND_CLUSTER_NAME := eda-demo2
 
 # Do not install metallb as part of the kind cluster
@@ -39,7 +39,7 @@
 
 # SINGLESTACK_SVCS = false
 
-# Proxy vars specfic to the cluster nodes
+# Proxy vars specific to the cluster nodes
 # rather than the host machine that the make is running from
 # -----------------------------------------------------------------------------|
 
@@ -61,4 +61,4 @@
 #  See config/kpt-core-setters.yml for an example.
 # -----------------------------------------------------------------------------|
 
-# KPT_CORE_SETTERS_FILE := private/kpt-core-setters.yml
+# KPT_SETTERS_FILE := private/kpt-setters.yml

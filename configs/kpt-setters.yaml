@@ -46,3 +46,24 @@ data:
   # SINGLESTACK_SVCS: false
   # TM_IMG: ghcr.io/nokia-eda/core/testman:24.8.2
   # no_proxy: 10.244.0.0/16,fd00:10:244::/56,.local,.svc,eda-git,eda-git-replica
+  # CMCA_IMG: quay.io/jetstack/cert-manager-cainjector:v1.14.4
+  # CMCT_IMG: quay.io/jetstack/cert-manager-controller:v1.14.4
+  # CMWH_IMG: quay.io/jetstack/cert-manager-webhook:v1.14.4
+  # CM_ARGS: [--acme-http01-solver-image=ghcr.io/nokia-eda/ext/jetstack/cert-manager-acmesolver:v1.14.4, --cluster-resource-namespace=$(POD_NAMESPACE), --leader-election-namespace=kube-system, --max-concurrent-challenges=60, --v=2]
+  # CORE_IMG_CREDENTIALS: gitlab-core
+  # CSI_DRIVER_IMG: quay.io/jetstack/cert-manager-csi-driver:v0.8.0
+  # CSI_LIVPROBE_IMG: registry.k8s.io/sig-storage/livenessprobe:v2.12.0
+  # CSI_REGISTRAR_IMG: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
+  # FB_IMG: cr.fluentbit.io/fluent/fluent-bit:3.0.7
+  # FD_IMG: ghcr.io/nokia-eda/core/fluentd:v1.17.0-debian-1.0
+  # GOGS_ADMIN_PASS: ZWRhCg==
+  # GOGS_ADMIN_USER: ZWRhCg==
+  # GOGS_IMG_TAG: ghcr.io/gogs/gogs:0.13
+  # GOGS_PV_CLAIM_SIZE: 24Gi
+  # GOGS_REPLICA_PV_CLAIM_SIZE: 24Gi
+  # TRUSTMGRBUNDLE_IMG: quay.io/jetstack/cert-manager-package-debian:20210119.0
+  # TRUSTMGR_IMG: quay.io/jetstack/trust-manager:v0.9.1
+  # CORE_IMG_CREDENTIALS: gitlab-core
+  # SRL_24_7_1_GHCR: ghcr.io/nokia/srlinux:24.7.1-arm-preview
+  # SRL_24_7_2_GHCR: ghcr.io/nokia/srlinux:24.7.2-arm-preview
+  # YANG_REMOTE_URL: https://github.com/nokia/srlinux-yang-models/releases/download/v24.7.1

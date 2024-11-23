@@ -85,13 +85,14 @@ $(error "KIND config file $(KIND_CONFIG_REAL_LOC) not found")
 endif
 $(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
 
-KPT_CORE_SETTERS_FILE ?= $(CFG)/kpt-core-setters.yaml
-KPT_CORE_SETTERS_REAL_LOC := $(realpath $(KPT_CORE_SETTERS_FILE))
-KPT_CORE_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-core-setters.yaml
-ifeq ($(KPT_CORE_SETTERS_REAL_LOC),)
-$(error "KPT EDA Core setters file $(KIND_CONFIG_REAL_LOC) not found")
+KPT_SETTERS_FILE ?= $(CFG)/kpt-setters.yaml
+KPT_SETTERS_REAL_LOC := $(realpath $(KPT_SETTERS_FILE))
+KPT_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-setters.yaml
+ifeq ($(KPT_SETTERS_REAL_LOC),)
+$(error "KPT setters file $(KPT_SETTERS_REAL_LOC) not found")
 endif
-$(info --> INFO: Using $(KPT_CORE_SETTERS_REAL_LOC) KPT EDA Core setters file)
+$(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) KPT setters file)
+$(shell cp $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE))
 
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
@@ -238,7 +239,7 @@ CONTAINER_IMAGES := \
 	"$(SRL_24_7_2_GHCR)"
 
 .PHONY: pull-images
-pull-images: | login-registry $(if $(ARM),kpt-set-arm-images,) ## Pull eda core images
+pull-images: | login-registry ## Pull eda core images
 	@for image in $(CONTAINER_IMAGES); do \
 	docker pull $$image & \
 	done; wait
@@ -446,14 +447,13 @@ INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-node
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-api
 
 .PHONY: install-external-packages
-install-external-packages: | $(BASE) $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install external components for EDA core (cert/trust-manager,fluentd,csi,gogs,CA's)
+install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install external components for EDA core (cert/trust-manager, fluentd, csi, gogs, CA's)
 
 
-.PHONY: eda-configure-core
-eda-configure-core: | $(BUILD) ## Configure the EDA core deployment before launching
+.PHONY: instantiate-kpt-setters-work-file
+instantiate-kpt-setters-work-file: | $(BASE) $(CFG) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
-		echo "--> KPT:CORE: Setting cluster parameters in engineconfig"	;\
-		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
+		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		export cluster_pod_cidr=$$($(GET_POD_CIDR))				;\
 		export cluster_svc_cidr=$$($(GET_SVC_CIDR))				;\
 		export HTTPS_PROXY=$(HTTPS_PROXY)						;\
@@ -462,24 +462,44 @@ eda-configure-core: | $(BUILD) ## Configure the EDA core deployment before launc
 		export https_proxy=$(https_proxy)						;\
 		export http_proxy=$(http_proxy)							;\
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
-		cp $(KPT_CORE_SETTERS_REAL_LOC) $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval --no-doc '... comments=""' -i $(KPT_CORE_SETTERS_WORK_FILE);\
-		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_CORE_SETTERS_WORK_FILE); \
+		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
+		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.SRL_24_7_1_GHCR = \"$(SRL_24_7_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.SRL_24_7_2_GHCR = \"$(SRL_24_7_2_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+	}
+
+
+.PHONY: configure-external-packages
+configure-external-packages: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work-file $(if $(filter arm64,$(ARCH)),kpt-set-ext-arm-images,) ## Configure external packages (cert/trust-manager, fluentd, csi, gogs)
+	@{	\
+		echo "--> KPT:EXT: Configuring external packages"	;\
+		pushd $(KPT_EXT_PKGS) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
-		--fn-config $(KPT_CORE_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
+	}
+
+.PHONY: eda-configure-core
+eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file ## Configure the EDA core deployment before launching
+	@{	\
+		echo "--> KPT:CORE: Setting cluster parameters in engineconfig"	;\
+		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
+		--truncate-output=false \
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 	}
 
@@ -702,13 +722,13 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is
 		$(XARGS_CMD) -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
 
 .PHONY: eda-configure-playground
-eda-configure-playground:
+eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the playground packages
 	@{	\
 		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
 		echo "--> KPT: Setting SR Linux images: $(SRL_24_7_1_GHCR) $(SRL_24_7_2_GHCR)"	;\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false -- \
-			SRL_24_7_1_GHCR=$(SRL_24_7_1_GHCR) \
-			SRL_24_7_2_GHCR=$(SRL_24_7_2_GHCR) 2>&1 | sed 's/^/    /' ;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
+		--truncate-output=false \
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)						;\
 	}
 
@@ -864,25 +884,24 @@ list-kpt-setters-external-packages: | $(KPT) ## Show the available kpt setter fo
 list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the eda-playground package
 	@$(call show-kpt-setter-in-dir,$(KPT_PLAYGROUND))
 
-.PHONY: kpt-set-arm-images
-kpt-set-arm-images: | $(KPT) ## Set ARM versions of the images
+.PHONY: kpt-set-ext-arm-images
+kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the images
 	@{	\
-		$(KPT) fn eval eda-kpt --image $(APPLY_SETTER_IMG) --truncate-output=false -- \
-			CMCA_IMG="quay.io/jetstack/cert-manager-cainjector:v1.14.4" \
-			TRUSTMGRBUNDLE_IMG="quay.io/jetstack/cert-manager-package-debian:20210119.0" \
-			TRUSTMGR_IMG="quay.io/jetstack/trust-manager:v0.9.1" \
-			CMCT_IMG="quay.io/jetstack/cert-manager-controller:v1.14.4" \
-			CMWH_IMG="quay.io/jetstack/cert-manager-webhook:v1.14.4" \
-			CSI_DRIVER_IMG="quay.io/jetstack/cert-manager-csi-driver:v0.8.0" \
-			FB_IMG="cr.fluentbit.io/fluent/fluent-bit:3.0.7" \
-			GOGS_IMG_TAG="docker.io/gogs/gogs:0.13" \
-			CSI_REGISTRAR_IMG="k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0" \
-			CSI_LIVPROBE_IMG="registry.k8s.io/sig-storage/livenessprobe:v2.12.0" 2>&1 | sed 's/^/    /' ;\
+		$(YQ) eval ".data.CMCA_IMG = \"quay.io/jetstack/cert-manager-cainjector:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.TRUSTMGRBUNDLE_IMG = \"quay.io/jetstack/cert-manager-package-debian:20210119.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.TRUSTMGR_IMG = \"quay.io/jetstack/trust-manager:v0.9.1\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMCT_IMG = \"quay.io/jetstack/cert-manager-controller:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMWH_IMG = \"quay.io/jetstack/cert-manager-webhook:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_DRIVER_IMG = \"quay.io/jetstack/cert-manager-csi-driver:v0.8.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.FB_IMG = \"cr.fluentbit.io/fluent/fluent-bit:3.0.7\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GOGS_IMG_TAG = \"ghcr.io/gogs/gogs:0.13.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_REGISTRAR_IMG = \"k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(ARM),kpt-set-arm-images,) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
