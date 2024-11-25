@@ -114,7 +114,7 @@ CURL := curl --silent --fail --show-error
 ## Where to get things:
 
 ### Access token
-GH_RO_TOKEN := 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
+GH_RO_TOKEN := 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
 
 ### Eda components
 EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/kpt.git
