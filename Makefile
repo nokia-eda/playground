@@ -78,6 +78,8 @@ TIMEOUT_NODE_READY ?= 600s
 
 CFG := $(TOP_DIR)/configs
 
+$(shell mkdir -p $(BUILD))
+
 KIND_CONFIG_FILE ?= $(CFG)/kind.yaml
 KIND_CONFIG_REAL_LOC := $(realpath $(KIND_CONFIG_FILE))
 ifeq ($(KIND_CONFIG_REAL_LOC),)
