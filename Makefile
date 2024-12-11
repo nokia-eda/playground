@@ -9,14 +9,14 @@ PG_PREFS_REAL_LOC := $(realpath $(PLAYGROUND_PREFS_FILE))
 ifeq ($(PG_PREFS_REAL_LOC),)
 $(error "Preferences file $(PLAYGROUND_PREFS_FILE) not found")
 endif
-$(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
 -include $(PG_PREFS_REAL_LOC)
+-include $(realpath $(TOP_DIR)/private/$(PLAYGROUND_PREFS_FILE))
 
 
 ## Top level options
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
-TOPO ?= $(TOP_DIR)/topology/3-nodes-srl-24-7-2.yaml
+TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
 
@@ -36,11 +36,17 @@ else
 	XARGS_CMD ?= xargs
 endif
 
+EDA_CORE_NAMESPACE ?= eda-system
+EDA_GOGS_NAMESPACE ?= eda-system
+EDA_TRUSTMGR_NAMESPACE ?= eda-system
+EDA_USER_NAMESPACE ?= eda
+EDA_APPS_INSTALL_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
+
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
 EXT_HTTP_PORT ?= 9200
 EXT_HTTPS_PORT ?= 9443
-EXT_IPV4_ADDR ?= $(shell ip -4 addr show scope global | grep inet | grep -Eo '([0-9]*\.){3}[0-9]*' | head -1)
-EXT_IPV6_ADDR ?= $(shell ip -6 addr show scope global | grep inet6 | sed -e 's/^.*inet6 \([^ ]*\)\/.*$$/\1/;t;d' | head -1)
+EXT_IPV4_ADDR ?= $(shell ip route get 8.8.8.8 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
+EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 SINGLESTACK_SVCS ?= false
 HTTPS_PROXY ?= ""
 HTTP_PROXY ?= ""
@@ -59,15 +65,8 @@ APPLY_SETTER_IMG=ghcr.io/srl-labs/kpt-apply-setters:0.1.1
 
 CORE_IMAGE_REGISTRY=ghcr.io/nokia-eda
 SRL_IMAGE_REGISTRY=ghcr.io/nokia
+SRL_24_10_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.10.1-492
 
-# Set the SRL Image to the arm variant if we're on arm64
-ifeq ($(ARCH), arm64)
-  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-arm-preview
-  SRL_24_7_2_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-arm-preview
-else
-  SRL_24_7_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.1-330
-  SRL_24_7_2_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.7.2-319
-endif
 
 ## Level 2 options
 TOOLS ?= $(BASE)/tools
@@ -78,23 +77,23 @@ TIMEOUT_NODE_READY ?= 600s
 
 CFG := $(TOP_DIR)/configs
 
-$(shell mkdir -p $(BUILD))
-
 KIND_CONFIG_FILE ?= $(CFG)/kind.yaml
 KIND_CONFIG_REAL_LOC := $(realpath $(KIND_CONFIG_FILE))
 ifeq ($(KIND_CONFIG_REAL_LOC),)
-$(error "KIND config file $(KIND_CONFIG_REAL_LOC) not found")
+$(error "[ERROR] KIND config file $(KIND_CONFIG_REAL_LOC) not found")
 endif
-$(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
 
 KPT_SETTERS_FILE ?= $(CFG)/kpt-setters.yaml
 KPT_SETTERS_REAL_LOC := $(realpath $(KPT_SETTERS_FILE))
 KPT_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-setters.yaml
 ifeq ($(KPT_SETTERS_REAL_LOC),)
-$(error "KPT setters file $(KPT_SETTERS_REAL_LOC) not found")
+$(error "[ERROR] KPT setters file '$(KPT_SETTERS_REAL_LOC)' not found")
 endif
-$(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) KPT setters file)
-$(shell cp $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE))
+
+## Print all of the pref files information
+$(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
+$(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
+$(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) as the KPT setters file)
 
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
@@ -105,38 +104,50 @@ CM_WH_YML := $(KPT_PKG)/eda-external-packages/webhook-tests/cert-manager-webhook
 GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range | sed 's/ //g' | sed -ne 's/\"--service-cluster-ip-range=\(.*\)\",/\1/p'
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
+## Tool Versions:
+KIND_VERSION ?= v0.24.0
+KUBECTL_VERSION ?= v1.31.1
+KPT_VERSION ?= v1.0.0-beta.44
+K9S_VERSION ?= v0.32.5
+YQ_VERSION ?= v4.42.1
+
 ## Tools:
-KIND := $(TOOLS)/kind
-KUBECTL := $(TOOLS)/kubectl
-KPT ?= $(TOOLS)/kpt
+KIND := $(TOOLS)/kind-$(KIND_VERSION)
+KUBECTL := $(TOOLS)/kubectl-$(KUBECTL_VERSION)
+KPT ?= $(TOOLS)/kpt-$(KPT_VERSION)
+# Version not embedded here its the name we use to extract from tar also
 K9S ?= $(TOOLS)/k9s
-YQ ?= $(TOOLS)/yq
+YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
 CURL := curl --silent --fail --show-error
 
 ## Where to get things:
 
 ### Access token
-GH_RO_TOKEN := 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
+GH_RO_TOKEN ?= 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
+
+GH_KPT_URL ?= github.com/nokia-eda/kpt.git
+GH_CAT_URL ?= github.com/nokia-eda/catalog.git
+GH_K8s_HELM_URL ?= github.com/nokia-eda/connect-k8s-helm-charts.git
 
 ### Eda components
-EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/kpt.git
-CATALOG_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/catalog.git
-K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@github.com/nokia-eda/connect-k8s-helm-charts.git
+EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_KPT_URL)
+CATALOG_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_CAT_URL)
+K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_K8s_HELM_URL)
 
 ### Tools
-KIND_SRC := https://kind.sigs.k8s.io/dl/v0.17.0/kind-$(OS)-$(ARCH)
-KUBECTL_SRC := https://dl.k8s.io/release/v1.25.3/bin/$(OS)/$(ARCH)/kubectl
-KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/v1.0.0-beta.44/kpt_$(OS)_$(ARCH)
+KIND_SRC := https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(OS)-$(ARCH)
+KUBECTL_SRC := https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(OS)/$(ARCH)/kubectl
+KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_VERSION)/kpt_$(OS)_$(ARCH)
 # K9s uses the uname directly in its package name
-K9S_SRC := https://github.com/derailed/k9s/releases/download/v0.32.5/k9s_$(UNAME)_$(ARCH).tar.gz
-YQ_SRC := https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_$(OS)_$(ARCH)
+K9S_SRC := https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
+YQ_SRC := https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 
 ## Create working directories
 
-$(BUILD): | $(BASE); $(info --> Creating a build dir: $(BUILD))
+$(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
 	@mkdir -p $(BUILD)
 
-$(TOOLS): | $(BASE); $(info --> Creating a tools dir: $(TOOLS))
+$(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 	@mkdir -p $(TOOLS)
 
 ## Download all the tools
@@ -198,59 +209,8 @@ $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect
 download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
 
 .PHONY: update-connect-k8s-helm-charts
-update-connect-k8s-helm-charts: ## Fetch connect-k8s-helm-charts updates
+update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts updates
 	git -C $(K8S_HELM) pull
-
-.PHONY: login-registry
-login-registry: ## Log in to the core image registries
-	@{	\
-		echo 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 | \
- 		docker login $(CORE_IMAGE_REGISTRY) -u nokia-eda-bot --password-stdin ;\
-	}
-
-
-# Optionally pre-pull the images for kind-based clusters
-# where you may load the images to the kind cluster to avoid
-# pulling them from the repo
-
-RELEASE_TAG ?= 24.8.2
-
-CONTAINER_IMAGES := \
-	"$(CORE_IMAGE_REGISTRY)/core/eda-keycloak:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/eda-postgres:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/gogs:0.13.0" \
-	"$(CORE_IMAGE_REGISTRY)/core/config-engine:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/ext/sig-storage/csi-node-driver-registrar:v2.10.0" \
-	"$(CORE_IMAGE_REGISTRY)/ext/sig-storage/livenessprobe:v2.12.0" \
-	"$(CORE_IMAGE_REGISTRY)/ext/jetstack/cert-manager-csi-driver:v0.8.0" \
-	"$(CORE_IMAGE_REGISTRY)/ext/jetstack/cert-manager-cainjector:v1.14.4" \
-	"$(CORE_IMAGE_REGISTRY)/core/api-server:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/appstore-server:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/artifact-server:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/bootstrap-server:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/cx:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/flow-engine:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/state-aggregator:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/state-controller:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/state-engine:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/eda-toolbox:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/fluentd:v1.17.0-debian-1.0" \
-	"$(CORE_IMAGE_REGISTRY)/core/fluent-bit:3.0.7-amd64" \
-	"$(CORE_IMAGE_REGISTRY)/core/cxdp:$(RELEASE_TAG)" \
-	"$(CORE_IMAGE_REGISTRY)/core/npp:$(RELEASE_TAG)" \
-	"$(SRL_24_7_2_GHCR)"
-
-.PHONY: pull-images
-pull-images: | login-registry ## Pull eda core images
-	@for image in $(CONTAINER_IMAGES); do \
-	docker pull $$image & \
-	done; wait
-
-.PHONY: kind-load-images
-kind-load-images: ## Load eda core images into the kind cluster
-	@for image in $(CONTAINER_IMAGES); do \
-	$(KIND) load docker-image $$image --name $(KIND_CLUSTER_NAME) & \
-	done; wait
 
 ## Cluster launch
 
@@ -344,7 +304,6 @@ cm-is-deployment-ready: | $(BASE) $(KUBECTL) ; $(info --> CERT: Waiting for depl
 		echo "--> CERT: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" ;\
 	}
 
-
 .PHONY: cm-is-webhook-ready
 cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager ready ?
 	@{	\
@@ -375,7 +334,7 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 trustmgr-is-deployment-ready: | $(BASE) $(KUBECTL); $(info --> TRUST: Waiting for deployment to be ready) @ ## Is the deployment up ?
 	@{	\
 		START=$$(date +%s)																											;\
-		$(KUBECTL) wait deployment trust-manager -n cert-manager --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /'	;\
+		$(KUBECTL) wait deployment trust-manager -n $(EDA_TRUSTMGR_NAMESPACE) --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /'	;\
 		echo "--> TRUST: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" 												;\
 	}
 
@@ -384,7 +343,7 @@ POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
 
 .PHONY: git-is-init-done
 git-is-init-done: | $(BASE) $(KUBECTL) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
-	@$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
+	@$(KUBECTL) -n $(EDA_GOGS_NAMESPACE) exec -it $$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
 
 define INSTALL_KPT_PACKAGE
 	{	\
@@ -399,7 +358,11 @@ endef
 
 .PHONY: load-image-pull-secret
 load-image-pull-secret: | $(BASE) $(KUBECTL) $(KPT_PKG)
-	@$(KUBECTL) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | sed 's/^/    /'
+	@$(KUBECTL) -n $(EDA_CORE_NAMESPACE) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | sed 's/^/    /'
+
+.PHONY: install-eda-core-ns
+install-eda-core-ns: | $(BASE) $(KPT) 
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-core-ns,core-ns)
 
 .PHONY: install-external-package-fluentd
 install-external-package-fluentd: | $(BASE) $(KPT) load-image-pull-secret
@@ -434,6 +397,7 @@ install-external-package-eda-issuer-api: | $(BASE) $(KPT) load-image-pull-secret
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-issuer-api,eda api issuer)
 
 INSTALL_EXTERNAL_PACKAGE_LIST=
+INSTALL_EXTERNAL_PACKAGE_LIST += install-eda-core-ns
 INSTALL_EXTERNAL_PACKAGE_LIST += load-image-pull-secret
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-fluentd
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-cert-manager
@@ -453,8 +417,11 @@ install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTER
 
 
 .PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(CFG) ## Instantiate kpt setters work file from a template and set the known values
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
+		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then \
+			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE); \
+		fi; \
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		export cluster_pod_cidr=$$($(GET_POD_CIDR))				;\
 		export cluster_svc_cidr=$$($(GET_SVC_CIDR))				;\
@@ -478,8 +445,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(CFG) ## Instantiate kpt setters w
 		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.SRL_24_7_1_GHCR = \"$(SRL_24_7_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.SRL_24_7_2_GHCR = \"$(SRL_24_7_2_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 
@@ -515,7 +481,7 @@ is-ce-first-commit-done: | $(BASE) $(KUBECTL); $(info --> CE: Blocking until eng
 	@{	\
 		counter=0																											;\
 		while true; do																										 \
-			if [[ "$$($(KUBECTL) get engineconfig $(ENGINECONFIG_CR_NAME) -o=jsonpath='{.status.run-status}')" = "Started" ]]; then	 \
+			if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig $(ENGINECONFIG_CR_NAME) -o=jsonpath='{.status.run-status}')" = "Started" ]]; then	 \
 				echo "--> CE: Engine first commit complete" && break														;\
 			elif [[ $$counter -gt 600 ]]; then																				 \
 				$(MAKE) -C $(TOP_DIR) ls-pods ce-logs ce-status																;\
@@ -528,33 +494,20 @@ is-ce-first-commit-done: | $(BASE) $(KUBECTL); $(info --> CE: Blocking until eng
 		done																												;\
 	}
 
-CE_CHILDREN_DEPLOYMENTS_LIST=
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-api
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-appstore
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-asvr
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-bsvr
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-cx
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-fe
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-keycloak
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-postgres
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-sa
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-sc
-CE_CHILDREN_DEPLOYMENTS_LIST += eda-toolbox
-
 define WAIT_FOR_DEP
 	{	\
 		START=$$(date +%s)													;\
 		INFO_1=0															;\
 		INFO_2=0															;\
 		while true; do														 \
-			if ! $(KUBECTL) get deployments.apps $1 --no-headers &> /dev/null ; then \
+			if ! $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get deployments.apps $1 --no-headers &> /dev/null ; then \
 				if [[ $${INFO_1} -ne 1 ]]; then 							 \
 					echo -e "--> LAUNCH: [\033[1;35m$1\033[0m] Waiting for deployment to be created";\
 					INFO_1=1												;\
 				fi															;\
 				sleep 2													;\
 			else															 \
-				avail_rep=$$($(KUBECTL) get deployments.apps $1 -ojsonpath='{.status.availableReplicas}')	;\
+				avail_rep=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get deployments.apps $1 -ojsonpath='{.status.availableReplicas}')	;\
 				if [[ $${avail_rep} -eq 1 ]]; then							 \
 					echo -e "--> LAUNCH: [\033[0;32m$1\033[0m] deployment is now available - took $$(( $$(date +%s) - $$START ))s"	;\
 					break													;\
@@ -573,12 +526,17 @@ endef
 .PHONY: eda-is-core-deployment-ready
 eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core pods to launch and be ready
 	@$(call WAIT_FOR_DEP,eda-ce)
-
-	@echo $(CE_CHILDREN_DEPLOYMENTS_LIST) | tr ' ' '\n' | \
-		$(XARGS_CMD) -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'
+	@{ \
+		CE_CHILDREN_DEPLOYMENTS_LIST="eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox"; \
+		if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig engine-config -o jsonpath='{.spec.simulate}')" == "true" ]]; then \
+			CE_CHILDREN_DEPLOYMENTS_LIST="$$CE_CHILDREN_DEPLOYMENTS_LIST eda-cx"; \
+		fi; \
+		echo "$$CE_CHILDREN_DEPLOYMENTS_LIST" | tr ' ' '\n' | \
+			$(XARGS_CMD) -P 11 -I {} bash -c '$(call WAIT_FOR_DEP,{})'; \
+	}
 
 .PHONY: eda-is-core-ready
-eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done is-apps-registry-reachable is-apps-catalog-operational ## Flight checks if core is ready
+eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done apps-is-appflow-ready ## Flight checks if core is ready
 
 
 .PHONY: eda-uninstall-core
@@ -591,50 +549,16 @@ eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core service
 	}
 
 APPS_INSTALL_CRS := $(CATALOG)/install-crs
-APP_VENDOR := nokia
+APPS_VENDOR ?= nokia
 APP_INSTALL_TIMEOUT ?= 600
 
-define INSTALL_APP
-	{	\
-		START=$$(date +%s)																	;\
-		export APP=$(1)																		;\
-		echo -e "--> INSTALL:APP: [\033[1;34m$${APP}\033[0m] Installing"					;\
-		$(KUBECTL) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml 2>&1 | sed "s/^/    /"	;\
-		MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
-		COUNT=0																				;\
-		INSTALLED=0																			;\
-		ATTEMPTED_INSTALL=0																	;\
-		while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
-			state=$$($(KUBECTL) get appinstalls.appstore.eda.nokia.com $$APP.$(APP_VENDOR) --no-headers -o=jsonpath='{.status.Stage}');\
-			if [[ "$${state}" == "Installed" ]]; then										 \
-				INSTALLED=1																	;\
-				break																		;\
-			fi																				;\
-			ATTEMPTED_INSTALL=1																;\
-			COUNT=$$((COUNT + 1))															;\
-			sleep 1 																		;\
-		done 																				;\
-		if [ $$INSTALLED -ne 1 ] ; then														 \
-			echo																			;\
-			$(KUBECTL) get transactionresults -o yaml										;\
-			$(KUBECTL) get appinstalls -o yaml												;\
-			echo "--> INSTALL:APP: [\033[0;31m$${APP}\033[0m] Failed to install did not reach installed state in $${COUNT}s, it is in $${state}" ;\
-			exit 1 																			;\
-		else																				 \
-			echo -e "--> INSTALL:APP: [\033[0;32m$${APP}\033[0m] Installed in $$(( $$(date +%s) - $$START ))s" ;\
-		fi																					;\
-	}
-endef
-
 # Apps that need to be installed in a specific order
-APPS_INSTALL_SEQ_LIST_BUILTIN=
-APPS_INSTALL_SEQ_LIST_BUILTIN += core
-APPS_INSTALL_SEQ_LIST_BUILTIN += appstore
-
+# The order of this list how they get installed
 APPS_INSTALL_LIST_BUILTIN=
-APPS_INSTALL_LIST_BUILTIN += anomalies
+APPS_INSTALL_LIST_BUILTIN += aaa
 APPS_INSTALL_LIST_BUILTIN += bootstrap
 APPS_INSTALL_LIST_BUILTIN += components
+APPS_INSTALL_LIST_BUILTIN += config
 APPS_INSTALL_LIST_BUILTIN += environment
 APPS_INSTALL_LIST_BUILTIN += interfaces
 APPS_INSTALL_LIST_BUILTIN += protocols
@@ -649,85 +573,99 @@ APPS_INSTALL_LIST_BUILTIN += system
 APPS_INSTALL_LIST_BUILTIN += timing
 APPS_INSTALL_LIST_BUILTIN += fabrics
 APPS_INSTALL_LIST_BUILTIN += oam
+APPS_INSTALL_LIST_BUILTIN += security
+APPS_INSTALL_LIST_BUILTIN += topologies
 
 NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
 
-.PHONY: is-apps-catalog-operational
-is-apps-catalog-operational: ## Can the EDA AppStore catalog be reached ?
+POD_LABEL_ET=eda.nokia.com/app=eda-toolbox
+EDACTL_BIN := /eda/tools/edactl
+
+.PHONY: apps-is-appflow-ready
+apps-is-appflow-ready:
 	@{	\
-		START=$$(date +%s)													;\
-		MAX_WAIT=$(APP_INSTALL_TIMEOUT)										;\
-		COUNT=0																;\
-		INSTALLED=0															;\
-		reachable="false"													;\
-		resource="eda-catalog-builtin-apps"									;\
-		echo -e "--> APP: [\033[1;34m$${resource}\033[0m] Waiting for catalog to be operational";\
-		while [ $$COUNT -lt $$MAX_WAIT ]; do								 \
-			reachable=$$($(KUBECTL) get catalogs.appstore.eda.nokia.com $${resource} --no-headers -o=jsonpath='{.status.operational}');\
-			if [[ "$${reachable}" == "true" ]]; then						 \
-				INSTALLED=1													;\
-				break														;\
-			fi																;\
-			COUNT=$$((COUNT + 1))											;\
-			sleep 1 														;\
-		done 																;\
-		if [ $$INSTALLED -ne 1 ] ; then										 \
-			echo															;\
-			$(KUBECTL) get catalogs.appstore.eda.nokia.com $${resource} -o yaml			;\
-			echo "--> [ERROR] APP catalog - $${resource} is not operational" && exit 1	;\
-			exit 1 															;\
-		else																 \
-			echo -e "--> APP: [\033[0;32m$${resource}\033[0m] Catalog is operational in $$(( $$(date +%s) - $$START ))s" ;\
-		fi																	;\
+		export ET_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) --no-headers -o=jsonpath='{.items[*].metadata.name}') ;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD} \
+		-- bash -c 'if [[ ! -f $(EDACTL_BIN) ]]; then echo "--> APPS:FLOW: [ERROR] $(EDACTL_BIN) in the toolbox pod does not exist!" && exit 1; else echo "--> APPS:FLOW: Found $(EDACTL_BIN)"; fi' ;\
+		declare -A resources																	;\
+			resources["catalogs.appstore.eda.nokia.com"]="$(APPS_LOCAL_CATALOG_NAME)"			;\
+			resources["registries.appstore.eda.nokia.com"]="$(APPS_LOCAL_REGISTRY_NAME)"		;\
+		for r in "$${!resources[@]}"															;\
+		do																						 \
+			RESOURCE=$$r																		;\
+			NAME=$${resources[$$r]}																;\
+			COUNT=0																				;\
+			MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
+			RESOURCE_FOUND=0																	;\
+			echo "--> APPS:FLOW: Waiting for $${RESOURCE} - $${NAME} - $$(date)"				;\
+			while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
+				found=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD}		 \
+				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE} $${NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
+				if [[ "$${found}" == "yes" ]]; then												 \
+					echo "--> APPS:FLOW: $${RESOURCE} - $${NAME} is available -- $$(date)"		;\
+					RESOURCE_FOUND=1															;\
+					break																		;\
+				fi																				;\
+				COUNT=$$((COUNT + 1))															;\
+				sleep 2s 																		;\
+			done																				;\
+			if [[ $$RESOURCE_FOUND -ne 1 ]]; then												 \
+				echo																			;\
+				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE} $${NAME} -- $$(date)"	;\
+				echo 																			;\
+				exit 1																			;\
+			fi																					;\
+		done ;\
 	}
 
-.PHONY: is-apps-registry-reachable
-is-apps-registry-reachable: ## Can the EDA AppStore image registry be reached ?
-	@{	\
-		START=$$(date +%s)													;\
-		MAX_WAIT=$(APP_INSTALL_TIMEOUT)										;\
-		COUNT=0																;\
-		INSTALLED=0															;\
-		reachable="false"													;\
-		resource="eda-apps-registry"										;\
-		echo -e "--> APP: [\033[1;34m$${resource}\033[0m] Waiting for app registry to be reachable";\
-		while [ $$COUNT -lt $$MAX_WAIT ]; do								 \
-			reachable=$$($(KUBECTL) get registries.appstore.eda.nokia.com $${resource} --no-headers -o=jsonpath='{.status.reachable}');\
-			if [[ "$${reachable}" == "true" ]]; then						 \
-				INSTALLED=1													;\
-				break														;\
-			fi																;\
-			COUNT=$$((COUNT + 1))											;\
-			sleep 1 														;\
-		done 																;\
-		if [ $$INSTALLED -ne 1 ] ; then										 \
-			echo															;\
-			$(KUBECTL) get registries.appstore.eda.nokia.com $${resource} -o yaml	;\
-			echo "--> [ERROR] APP catalog - $${resource} is not reachable" && exit 1;\
-			exit 1 															;\
-		else																 \
-			echo -e "--> APP: [\033[0;32m$${resource}\033[0m] Registry is reachable in $$(( $$(date +%s) - $$START ))s" ;\
-		fi																	;\
+## The @ supressor is not here, its in the $(call ...) where the macro is called
+define INSTALL_APP
+	{	\
+		START=$$(date +%s)																	;\
+		export APPS_VENDOR=$(1)																;\
+		export APP=$(2)																		;\
+		$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) delete -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml --ignore-not-found	;\
+		echo -e "--> INSTALL:APP: [\033[1;34m$${APP}\033[0m] Installing"					;\
+		$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) apply -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml 2>&1 | sed "s/^/    /"	;\
+		MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
+		COUNT=0																				;\
+		INSTALLED=0																			;\
+		while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
+			state=$$($(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) get workflows.core.eda.nokia.com $$APP-$${APPS_VENDOR}-install --no-headers -o=jsonpath='{.status.result}');\
+			if [[ "$${state}" == "OK" ]]; then										 		 \
+				INSTALLED=1																	;\
+				break																		;\
+			fi																				;\
+			COUNT=$$((COUNT + 1))															;\
+			sleep 1 																		;\
+		done 																				;\
+		if [ $$INSTALLED -ne 1 ] ; then														 \
+			echo																			;\
+			$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) get transactionresults -o yaml										;\
+			$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) get workflows -o yaml												;\
+			echo "--> INSTALL:APP: [\033[0;31m$${APP}\033[0m] Failed to install, did not reach installed state in $${COUNT}s, it is in $${state}" ;\
+			$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) delete -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml --ignore-not-found	;\
+			exit 1 																			;\
+		else																				 \
+			echo -e "--> INSTALL:APP: [\033[0;32m$${APP}\033[0m] Installed in $$(( $$(date +%s) - $$START ))s" ;\
+			$(KUBECTL) --namespace $(EDA_APPS_INSTALL_NAMESPACE) delete -f $(APPS_INSTALL_CRS)/$${APP}-install-cr.yaml --ignore-not-found | sed "s/^/    /"	;\
+		fi																					;\
 	}
+endef
+
 
 .PHONY: eda-install-apps
-eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) is-apps-catalog-operational is-apps-registry-reachable ## Install EDA apps from the appstore catalog
+eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) apps-is-appflow-ready ## Install EDA apps from the appstore catalog
 	@echo "--> INSTALL:APP: Installing apps from catalog $(CATALOG)"
-	@{	\
-		for app in $(APPS_INSTALL_SEQ_LIST_BUILTIN)	;\
-		do									 \
-			$(call INSTALL_APP,$$app)		;\
-		done 								;\
-	}
 
 	@echo $(APPS_INSTALL_LIST_BUILTIN) | tr ' ' '\n' | \
-		$(XARGS_CMD) -P $(NUMBER_OF_PARALLEL_APP_INSTALLS) -I {} bash -c '$(call INSTALL_APP,{})'
+		$(XARGS_CMD)  -P $(words $(APPS_INSTALL_LIST_BUILTIN)) -I {} bash -c '$(call INSTALL_APP,$(APPS_VENDOR),{})'
 
 .PHONY: eda-configure-playground
 eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the playground packages
 	@{	\
 		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
-		echo "--> KPT: Setting SR Linux images: $(SRL_24_7_1_GHCR) $(SRL_24_7_2_GHCR)"	;\
+		echo "--> KPT: Setting SR Linux images: $(SRL_24_10_1_GHCR)"	;\
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
 		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
@@ -738,6 +676,8 @@ eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the p
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PLAYGROUND),EDA PLAYGROUND)
 
+##@ Topology
+
 .PHONY: template-topology
 template-topology:  ## Create topology config-map from the topology input
 	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
@@ -747,17 +687,19 @@ template-topology:  ## Create topology config-map from the topology input
 topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
-		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL) apply -f -				;\
+		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
 		echo "--> TOPO: config created in cluster"			;\
-		export POD_NAME=$$($(KUBECTL) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
+		export POD_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
 		echo "--> TOPO: Checking if $$POD_NAME is Running"	;\
-		while [ "$$($(KUBECTL) get pod $$POD_NAME -o jsonpath='{.status.phase}')" != "Running" ]; do \
+		while [ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod $$POD_NAME -o jsonpath='{.status.phase}')" != "Running" ]; do \
 			echo "--> TOPO: Waiting for $$POD_NAME to be in Running state...";\
 			sleep 5											;\
 		done												;\
-		$(KUBECTL) exec -it $$POD_NAME -- bash -c "/app/api-server-topo" | sed 's/^/    /';\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$POD_NAME -- bash -c "/app/api-server-topo -n $(EDA_USER_NAMESPACE)" | sed 's/^/    /';\
 	}
+
+##@ Utility Functions
 
 .PHONY: enable-ui-port-forward-service
 enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port forward systemd service
@@ -769,8 +711,8 @@ enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port for
 		sudo systemctl daemon-reload; \
 		sudo systemctl enable $${SVC_NAME}; \
 		sudo systemctl start $${SVC_NAME}; \
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"; \
 	}
 
@@ -778,28 +720,26 @@ enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port for
 start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to the host at port 9200
 	@{	\
 		echo "--> Exposing the UI to the host across the kind container boundary"																	;\
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-                port_forward_cmd="$(KUBECTL) port-forward service/eda-api --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
-                if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then \
-		port_forward_cmd="sudo -E $${port_forward_cmd}" ;\
-		fi ;\
+		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/eda-api --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
+		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
 		eval $$port_forward_cmd ;\
 	}
 
 
 .PHONY: open-toolbox
 open-toolbox: ## Log into the toolbox pod
-	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash
 
 .PHONY: e9s
 e9s: ## Run e9s application
-	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
 # NODE CLI access
 define NODE_CLI
-	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
 endef
 
 .PHONY: node-ssh
@@ -846,7 +786,7 @@ POD_LABEL_FD=eda.nokia.com/app=fluentd
 
 .PHONY: logs
 logs: ## Show me cluster wide logs
-	$(KUBECTL) exec -it $$($(KUBECTL) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c "lnav /var/log/eda/*"
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c "lnav /var/log/eda/*"
 
 .PHONY: logs-collect
 logs-collect: | $(KUBECTL) ## Get the logs from the cluster LOGS_DEST=<custom location>
@@ -856,7 +796,7 @@ logs-collect: | $(KUBECTL) ## Get the logs from the cluster LOGS_DEST=<custom lo
 		set +e ;\
 		echo "--> This is collected from $(TOP_DIR)" >> $${TO}/top-dir ;\
 		echo "--> Cluster name is $(KIND_CLUSTER_NAME)" >> $${TO}/cluster-name ;\
-		$(KUBECTL) cp $$($(KUBECTL) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}'):/var/log/eda "$${TO}"/	;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) cp $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}'):/var/log/eda "$${TO}"/	;\
 		docker ps -a >> $${TO}/running-containers ;\
 		$(KIND) export logs $${TO} --name $(KIND_CLUSTER_NAME) ;\
 		echo "--> Logs are stored in $${TO}" ;\
@@ -909,4 +849,4 @@ try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) insta
 
 .PHONY: help
 help:  ## Show the help menu
-	@sed -ne 's/^\([^[:space:]]*\):.*##/\1\t|\t/p' $(MAKEFILE_LIST) | sort | column -t -s $$'\t'
+	@sed -ne 's/^\([^[:space:]]*\):.*##/\1\t|\t/p' $(MAKEFILE_LIST) | sort | column -t -s $$'\t' | pager
