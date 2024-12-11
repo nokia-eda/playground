@@ -1,6 +1,6 @@
 # EDA Playground
 
-![playground](https://gitlab.com/rdodin/pics/-/wikis/uploads/75d5388f10914a2e3587baf44e4f1676/eda-pg1-gh.svg)
+![playground](https://gitlab.com/rdodin/pics/-/wikis/uploads/8cba729ce5c17f9f388d9d6df4c7cee2/eda-pg2-gh.svg)
 
 We made sure that trying EDA is as easy as running a single command. Literally.
 
