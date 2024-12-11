@@ -48,6 +48,7 @@ EXT_HTTPS_PORT ?= 9443
 EXT_IPV4_ADDR ?= $(shell ip route get 8.8.8.8 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 SINGLESTACK_SVCS ?= false
+SIMULATE ?= true
 HTTPS_PROXY ?= ""
 HTTP_PROXY ?= ""
 NO_PROXY ?= ""
@@ -433,6 +434,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_SETTERS_WORK_FILE); \
