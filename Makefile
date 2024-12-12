@@ -720,7 +720,7 @@ enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port for
 	}
 
 .PHONY: start-ui-port-forward
-start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to the host at port 9200
+start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to the host at port specified by EXT_HTTPS_PORT
 	@{	\
 		echo "--> Exposing the UI to the host across the kind container boundary"																	;\
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
