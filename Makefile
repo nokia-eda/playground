@@ -131,6 +131,7 @@ CURL := curl --silent --fail --show-error
 
 ### Access token
 GH_RO_TOKEN ?= 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
+GH_PKG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
 
 GH_KPT_URL ?= github.com/nokia-eda/kpt.git
 GH_CAT_URL ?= github.com/nokia-eda/catalog.git
@@ -433,6 +434,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		export https_proxy=$(https_proxy)						;\
 		export http_proxy=$(http_proxy)							;\
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
+		export RO_TOKEN=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE); \
@@ -449,6 +451,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN}\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 
