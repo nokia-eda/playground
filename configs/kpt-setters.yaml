@@ -3,67 +3,77 @@ kind: ConfigMap
 metadata:
   name: apply-setters-fn-config
 data:
-  # API_IMG: ghcr.io/nokia-eda/core/api-server:24.8.2
+  # API_IMG: ghcr.io/nokia-eda/core/api-server:24.12.1
   # API_REPLICAS: 1
+  # APP_CATALOG: https://github.com/nokia-eda/catalog.git
   # APP_REGISTRY: ghcr.io
-  # ASC_IMG: ghcr.io/nokia-eda/core/appstore-server:24.8.2
-  # ASVR_IMG: ghcr.io/nokia-eda/core/artifact-server:24.8.2
-  # BSVR_IMG: ghcr.io/nokia-eda/core/bootstrap-server:24.8.2
-  # CE_IMG: ghcr.io/nokia-eda/core/config-engine:24.8.2
+  # ASC_IMG: ghcr.io/nokia-eda/core/appstore-server:24.12.1
+  # ASF_IMG: ghcr.io/nokia-eda/core/appstore-flow:24.12.1
+  # ASVR_IMG: ghcr.io/nokia-eda/core/artifact-server:24.12.1
+  # BSVR_IMG: ghcr.io/nokia-eda/core/bootstrap-server:24.12.1
+  # CE_IMG: ghcr.io/nokia-eda/core/config-engine:24.12.1
   # CLUSTER_MEMBER_NAME: engine-config
-  # CORE_IMG_CREDENTIALS: gitlab-core
-  # CXDP_IMG: ghcr.io/nokia-eda/core/cxdp:24.8.2
-  # CX_IMG: ghcr.io/nokia-eda/core/cx:24.8.2
-  # EDA_TOOLBOX_IMG: ghcr.io/nokia-eda/core/eda-toolbox:24.8.2
-  # EXT_DOMAIN_NAME: cluster1.lab.eda.dev
-  # EXT_HTTPS_PORT: 443
-  # EXT_HTTP_PORT: 9200
-  # EXT_IPV4_ADDR: "10.1.0.11"
-  # EXT_IPV6_ADDR: "3fff:172:20:20::1"
-  # FE_IMG: ghcr.io/nokia-eda/core/flow-engine:24.8.2
+  # CORE_IMG_CREDENTIALS: core
+  # CXDP_IMG: ghcr.io/nokia-eda/core/cxdp:24.12.1
+  # CX_IMG: ghcr.io/nokia-eda/core/cx:24.12.1
+  # EDA_CORE_NAMESPACE: eda-system
+  # EDA_TOOLBOX_IMG: ghcr.io/nokia-eda/core/eda-toolbox:24.12.1
+  # EDA_USER_NAMESPACE: eda
+  # EMS_IMG: ghcr.io/nokia-eda/core/metrics-server:24.12.1
+  # EXT_HTTPS_PORT: 0
+  # EXT_HTTP_PORT: 0
+  # FE_IMG: ghcr.io/nokia-eda/core/flow-engine:24.12.1
+  # GH_CATALOG_TOKEN: secrettoken
+  # GH_CATALOG_USER: secretuser
   # GIT_REPO_APPS: /eda/apps.git
   # GIT_REPO_CHECKPOINT: /eda/customresources.git
   # GIT_REPO_IDENTITY: /eda/identity.git
-  # GIT_REPO_SECURTIY: /eda/credentials.git
+  # GIT_REPO_SECURITY: /eda/credentials.git
   # GIT_REPO_USER_SETTINGS: /eda/usersettings.git
   # GIT_SERVERS: [, ]
-  # KC_IMG: ghcr.io/nokia-eda/core/eda-keycloak:24.8.2
-  # LLM_API_KEY: some-key
+  # KC_IMG: ghcr.io/nokia-eda/core/eda-keycloak:24.12.1
   # LLM_MODEL: gpt-4o
-  # NO_PROXY: 10.244.0.0/16,fd00:10:244::/56,.local,.svc,eda-git,eda-git-replica
-  # NPP_IMG: ghcr.io/nokia-eda/core/npp:24.8.2
-  # PG_IMG: ghcr.io/nokia-eda/core/eda-postgres:24.8.2
-  # SA_IMG: ghcr.io/nokia-eda/core/state-aggregator:24.8.2
+  # NPP_IMG: ghcr.io/nokia-eda/core/npp:24.12.1
+  # PG_IMG: ghcr.io/nokia-eda/core/eda-postgres:24.12.1
+  # SA_IMG: ghcr.io/nokia-eda/core/state-aggregator:24.12.1
   # SA_REPLICAS: 1
-  # SC_IMG: ghcr.io/nokia-eda/core/state-controller:24.8.2
-  # SECRET_KC_ADMIN_PASSWORD: pass
-  # SECRET_KC_ADMIN_USERNAME: user
-  # SECRET_PG_DB_PASSWORD: secret
-  # SECRET_PG_DB_USERNAME: user
-  # SE_IMG: ghcr.io/nokia-eda/core/state-engine:24.8.2
+  # SC_IMG: ghcr.io/nokia-eda/core/state-controller:24.12.1
+  # SECRET_EDA_ADMIN_USERNAME: someuser
+  # SECRET_KC_ADMIN_PASSWORD: someuser
+  # SECRET_KC_ADMIN_USERNAME: someuser
+  # SECRET_PG_DB_PASSWORD: somepwd
+  # SECRET_PG_DB_USERNAME: someuser
+  # SE_IMG: ghcr.io/nokia-eda/core/state-engine:24.12.1
   # SE_REPLICAS: 1
   # SIMULATE: true
   # SINGLESTACK_SVCS: false
-  # TM_IMG: ghcr.io/nokia-eda/core/testman:24.8.2
-  # no_proxy: 10.244.0.0/16,fd00:10:244::/56,.local,.svc,eda-git,eda-git-replica
+  # TM_IMG: ghcr.io/nokia-eda/core/testman:24.12.1
   # CMCA_IMG: quay.io/jetstack/cert-manager-cainjector:v1.14.4
   # CMCT_IMG: quay.io/jetstack/cert-manager-controller:v1.14.4
   # CMWH_IMG: quay.io/jetstack/cert-manager-webhook:v1.14.4
   # CM_ARGS: [--acme-http01-solver-image=ghcr.io/nokia-eda/ext/jetstack/cert-manager-acmesolver:v1.14.4, --cluster-resource-namespace=$(POD_NAMESPACE), --leader-election-namespace=kube-system, --max-concurrent-challenges=60, --v=2]
-  # CORE_IMG_CREDENTIALS: gitlab-core
+  # CORE_IMG_CREDENTIALS: core
   # CSI_DRIVER_IMG: quay.io/jetstack/cert-manager-csi-driver:v0.8.0
   # CSI_LIVPROBE_IMG: registry.k8s.io/sig-storage/livenessprobe:v2.12.0
   # CSI_REGISTRAR_IMG: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0
+  # EDA_CORE_NAMESPACE: eda-system
+  # EDA_GOGS_NAMESPACE: eda-system
+  # EDA_TRUSTMGR_ISSUER_DNSNAMES: [trust-manager.eda-system.svc]
+  # EDA_TRUSTMGR_NAMESPACE: eda-system
+  # EXT_DOMAIN_NAME: eda.example.com
   # FB_IMG: cr.fluentbit.io/fluent/fluent-bit:3.0.7
   # FD_IMG: ghcr.io/nokia-eda/core/fluentd:v1.17.0-debian-1.0
+  # GIT_SVC_TYPE: ClusterIP
   # GOGS_ADMIN_PASS: ZWRhCg==
   # GOGS_ADMIN_USER: ZWRhCg==
-  # GOGS_IMG_TAG: ghcr.io/gogs/gogs:0.13
+  # GOGS_IMG_TAG: ghcr.io/gogs/gogs:0.13.0
   # GOGS_PV_CLAIM_SIZE: 24Gi
   # GOGS_REPLICA_PV_CLAIM_SIZE: 24Gi
   # TRUSTMGRBUNDLE_IMG: quay.io/jetstack/cert-manager-package-debian:20210119.0
+  # TRUSTMGR_ARGS: [--default-package-location=/packages/cert-manager-package-debian.json, --log-level=1, --metrics-port=9402, --readiness-probe-path=/readyz, --readiness-probe-port=6060, --trust-namespace=$(TRUST_NAMESPACE), --webhook-certificate-dir=/tls, --webhook-host=0.0.0.0, --webhook-port=6443]
   # TRUSTMGR_IMG: quay.io/jetstack/trust-manager:v0.9.1
-  # CORE_IMG_CREDENTIALS: gitlab-core
-  # SRL_24_7_1_GHCR: ghcr.io/nokia/srlinux:24.7.1-arm-preview
-  # SRL_24_7_2_GHCR: ghcr.io/nokia/srlinux:24.7.2-arm-preview
-  # YANG_REMOTE_URL: https://github.com/nokia/srlinux-yang-models/releases/download/v24.7.1
+  # CORE_IMG_CREDENTIALS: core
+  # EDA_CORE_NAMESPACE: eda-system
+  # EDA_USER_NAMESPACE: eda
+  # SRL_24_10_1_GHCR: ghcr.io/nokia/srlinux:24.10.1-492
+  # YANG_REMOTE_URL: https://github.com/nokia/srlinux-yang-models/releases/download/v24.10.1
