@@ -452,6 +452,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN}\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 
