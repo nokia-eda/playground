@@ -20,6 +20,12 @@ TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
 
+ifdef MACOS
+NO_KIND := 1
+NO_LB := 1
+$(info --> INFO: MACOS=$(MACOS) - enabling NO_KIND=$(NO_KIND) and NO_LB=$(NO_LB))
+endif
+
 ARCH_QUERY := $(shell uname -m)
 ifeq ($(ARCH_QUERY), x86_64)
 	ARCH := amd64
@@ -216,7 +222,7 @@ update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts u
 ## Cluster launch
 
 .PHONY: kind
-kind: cluster cluster-wait-for-node-ready $(if $(NO_LB),,metallb) ## Launch a single node KinD cluster (K8S inside Docker)
+kind: cluster cluster-wait-for-node-ready ## Launch a single node KinD cluster (K8S inside Docker)
 
 .PHONY: cluster
 cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane exists)
@@ -274,25 +280,20 @@ metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the loa
 
 LB_CFG_SRC := $(CFG)/metallb.yaml
 
-define KPT_SET_CM
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: apply-setters-fn-config
-data:
-  LB_IP_POOLS: |
-    - $1.255.0/24
-    - $2:ffff:ffff:ffff:ffff/120
-endef
-
 .PHONY: metallb-config
 metallb-config: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb config) @ ## Apply metallb address pools
+ifdef NO_KIND
+	@if [[ -z "$(METALLB_VIP)" ]]; then echo "[ERROR] METALLB_VIP is not specified" && exit 1; fi;
+	@echo "--> LB: NO_KIND=$(NO_KIND) specified - using $(METALLB_VIP)"
+	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(METALLB_VIP)]" | $(KUBECTL) apply -f - | sed 's/^/    /'
+else
 	$(eval KIND_SUBNETS=$(shell docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' kind))
 	$(eval KIND_SUBNET=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep -v ':' | head -n 1 | awk -F'.' '{print $$1 "." $$2}'))
 	$(eval KIND_SUBNET6=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep ':' | head -n 1 | awk -F':' '{print $$1 ":" $$2 ":" $$3 ":" $$4}'))
 	@echo "--> LB: Detected IPv4 Subnet: $(KIND_SUBNET)"
 	@echo "--> LB: Detected IPv6 Subnet: $(KIND_SUBNET6)"
 	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" | $(KUBECTL) apply -f - | sed 's/^/    /'
+endif
 
 .PHONY: metallb
 metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-config ## Load the metallb loadbalancer into the cluster
@@ -843,9 +844,8 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
-
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
