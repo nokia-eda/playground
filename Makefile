@@ -37,7 +37,7 @@ endif
 
 OS_QUERY := $(shell uname -s)
 ifeq ($(OS_QUERY), Darwin)
-	XARGS_CMD ?= xargs -S 2048
+	XARGS_CMD ?= xargs -S 4096
 else
 	XARGS_CMD ?= xargs
 endif
@@ -403,7 +403,7 @@ INSTALL_EXTERNAL_PACKAGE_LIST=
 INSTALL_EXTERNAL_PACKAGE_LIST += install-eda-core-ns
 INSTALL_EXTERNAL_PACKAGE_LIST += load-image-pull-secret
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-fluentd
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-cert-manager
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CERT_MANAGER_INSTALL),,install-external-package-cert-manager)
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-deployment-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-webhook-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-csi-driver

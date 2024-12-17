@@ -62,3 +62,10 @@
 # -----------------------------------------------------------------------------|
 
 # KPT_SETTERS_FILE := private/kpt-setters.yml
+
+# External packages options
+# -----------------------------------------------------------------------------|
+
+# do not install cert-manager. Set to "yes" when you have your own cert-manager
+# in a "cert-manager" namespace
+# NO_CERT_MANAGER_INSTALL := yes
