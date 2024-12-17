@@ -594,22 +594,17 @@ apps-is-appflow-ready:
 		export ET_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) --no-headers -o=jsonpath='{.items[*].metadata.name}') ;\
 		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD} \
 		-- bash -c 'if [[ ! -f $(EDACTL_BIN) ]]; then echo "--> APPS:FLOW: [ERROR] $(EDACTL_BIN) in the toolbox pod does not exist!" && exit 1; else echo "--> APPS:FLOW: Found $(EDACTL_BIN)"; fi' ;\
-		declare -A resources																	;\
-			resources["catalogs.appstore.eda.nokia.com"]="$(APPS_LOCAL_CATALOG_NAME)"			;\
-			resources["registries.appstore.eda.nokia.com"]="$(APPS_LOCAL_REGISTRY_NAME)"		;\
-		for r in "$${!resources[@]}"															;\
+		for resource in "catalogs.appstore.eda.nokia.com" "registries.appstore.eda.nokia.com"; 	\
 		do																						 \
-			RESOURCE=$$r																		;\
-			NAME=$${resources[$$r]}																;\
 			COUNT=0																				;\
 			MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
 			RESOURCE_FOUND=0																	;\
-			echo "--> APPS:FLOW: Waiting for $${RESOURCE} - $${NAME} - $$(date)"				;\
+			echo "--> APPS:FLOW: Waiting for $${resource} - $$(date)"							;\
 			while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
 				found=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD}		 \
 				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE} $${NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
 				if [[ "$${found}" == "yes" ]]; then												 \
-					echo "--> APPS:FLOW: $${RESOURCE} - $${NAME} is available -- $$(date)"		;\
+					echo "--> APPS:FLOW: $${resource} is available -- $$(date)"					;\
 					RESOURCE_FOUND=1															;\
 					break																		;\
 				fi																				;\
@@ -618,7 +613,7 @@ apps-is-appflow-ready:
 			done																				;\
 			if [[ $$RESOURCE_FOUND -ne 1 ]]; then												 \
 				echo																			;\
-				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE} $${NAME} -- $$(date)"	;\
+				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE} -- $$(date)"	;\
 				echo 																			;\
 				exit 1																			;\
 			fi																					;\
