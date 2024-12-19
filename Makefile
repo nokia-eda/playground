@@ -47,6 +47,7 @@ EDA_GOGS_NAMESPACE ?= eda-system
 EDA_TRUSTMGR_NAMESPACE ?= eda-system
 EDA_USER_NAMESPACE ?= eda
 EDA_APPS_INSTALL_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
+ENGINECONFIG_CR_NAME ?= engine-config
 
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
 EXT_HTTP_PORT ?= 9200
@@ -82,6 +83,13 @@ CATALOG ?= $(BASE)/catalog
 K8S_HELM ?= $(BASE)/connect-k8s-helm-charts
 TIMEOUT_NODE_READY ?= 600s
 
+KPT_LIVE_INIT_FORCE ?= 0
+KPT_INVENTORY_ADOPT ?= 0
+
+ifeq ($(KPT_INVENTORY_ADOPT),1)
+KPT_LIVE_APPLY_ARGS += --inventory-policy=adopt
+endif
+
 CFG := $(TOP_DIR)/configs
 
 KIND_CONFIG_FILE ?= $(CFG)/kind.yaml
@@ -96,6 +104,12 @@ KPT_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-setters.yaml
 ifeq ($(KPT_SETTERS_REAL_LOC),)
 $(error "[ERROR] KPT setters file '$(KPT_SETTERS_REAL_LOC)' not found")
 endif
+
+APPS_INSTALL_CRS ?= $(CATALOG)/install-crs
+APPS_VENDOR ?= nokia
+APP_INSTALL_TIMEOUT ?= 600
+APPS_REGISTRY_NAME ?= eda-apps-registry
+APPS_CATALOG_NAME ?= eda-catalog-builtin-apps
 
 ## Print all of the pref files information
 $(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
@@ -129,18 +143,28 @@ CURL := curl --silent --fail --show-error
 
 ## Where to get things:
 
-### Access token
-GH_RO_TOKEN ?= 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
+### Access tokens
+
+# Clone the repos to be used by the playground Makefile
+GH_RO_TOKEN ?=
+# Tokens to set in the kpt package for the AppStore Controller to pull the catalog and app images
 GH_PKG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
+GH_REG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
 
 GH_KPT_URL ?= github.com/nokia-eda/kpt.git
 GH_CAT_URL ?= github.com/nokia-eda/catalog.git
 GH_K8s_HELM_URL ?= github.com/nokia-eda/connect-k8s-helm-charts.git
 
-### Eda components
+### EDA Components
+ifeq ($(GH_RO_TOKEN),)
+EDA_KPT_PKG_SRC := https://$(GH_KPT_URL)
+CATALOG_PKG_SRC := https://$(GH_CAT_URL)
+K8S_HELM_PKG_SRC := https://$(GH_K8s_HELM_URL)
+else
 EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_KPT_URL)
 CATALOG_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_CAT_URL)
 K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_K8s_HELM_URL)
+endif
 
 ### Tools
 KIND_SRC := https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(OS)-$(ARCH)
@@ -348,14 +372,19 @@ POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
 git-is-init-done: | $(BASE) $(KUBECTL) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
 	@$(KUBECTL) -n $(EDA_GOGS_NAMESPACE) exec -it $$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
 
+## The @ suppressor is not here, its in the $(call ...) where the macro is called
 define INSTALL_KPT_PACKAGE
 	{	\
-		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"				;\
-		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)	;\
-		$(KPT) live init --force 2>&1 | sed 's/^/    /'										;\
-		$(KPT) live apply 2>&1 | sed 's/^/    /'											;\
-		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)	;\
-		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"	;\
+		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"									;\
+		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)						;\
+		if [[ ! -f resourcegroup.yaml ]] || [[ $(KPT_LIVE_INIT_FORCE) -eq 1 ]]; then						 \
+			$(KPT) live init --force |& sed 's/^/    /'														;\
+		else																								 \
+			echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Resource group found, don't re-init this package"	;\
+		fi																									;\
+		$(KPT) live apply $(KPT_LIVE_APPLY_ARGS) |& sed 's/^/    /'											;\
+		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)						;\
+		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"						;\
 	}
 endef
 
@@ -434,7 +463,8 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		export https_proxy=$(https_proxy)						;\
 		export http_proxy=$(http_proxy)							;\
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
-		export RO_TOKEN=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
+		export RO_TOKEN_REG=$$(echo "$(GH_REG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
+		export RO_TOKEN_CATALOG=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE); \
@@ -451,8 +481,8 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 
@@ -470,7 +500,7 @@ configure-external-packages: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-w
 .PHONY: eda-configure-core
 eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file ## Configure the EDA core deployment before launching
 	@{	\
-		echo "--> KPT:CORE: Setting cluster parameters in engineconfig"	;\
+		echo "--> KPT:CORE: Configuring the core package"	;\
 		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
@@ -482,7 +512,6 @@ eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file ## Confi
 eda-install-core: | $(BASE) $(KPT) ; $(info --> KPT: Launching EDA) @ ## Base install of EDA in a cluster
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_CORE),EDA CORE)
 
-ENGINECONFIG_CR_NAME ?= engine-config
 .PHONY: is-ce-first-commit-done
 is-ce-first-commit-done: | $(BASE) $(KUBECTL); $(info --> CE: Blocking until engine has first commit) @ ## Block until the config engine has processed its first commit
 	@{	\
@@ -555,10 +584,6 @@ eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core service
 		popd							;\
 	}
 
-APPS_INSTALL_CRS := $(CATALOG)/install-crs
-APPS_VENDOR ?= nokia
-APP_INSTALL_TIMEOUT ?= 600
-
 # Apps that need to be installed in a specific order
 # The order of this list how they get installed
 APPS_INSTALL_LIST_BUILTIN=
@@ -588,32 +613,43 @@ NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
 POD_LABEL_ET=eda.nokia.com/app=eda-toolbox
 EDACTL_BIN := /eda/tools/edactl
 
+# macos stock bash does not support associative arrays
+# Do not __improve__ with using declare -A
+# Syntax for this is "crd|cr" names
+# The quotes are important
+# To wait on multiple resources in the same gvk, duplicate the line as is
+APPFLOW_RESOURCES_TYPES=
+APPFLOW_RESOURCES_TYPES += "catalogs.appstore.eda.nokia.com|$(APPS_CATALOG_NAME)"
+APPFLOW_RESOURCES_TYPES += "registries.appstore.eda.nokia.com|$(APPS_REGISTRY_NAME)"
+
 .PHONY: apps-is-appflow-ready
 apps-is-appflow-ready:
 	@{	\
 		export ET_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) --no-headers -o=jsonpath='{.items[*].metadata.name}') ;\
 		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD} \
 		-- bash -c 'if [[ ! -f $(EDACTL_BIN) ]]; then echo "--> APPS:FLOW: [ERROR] $(EDACTL_BIN) in the toolbox pod does not exist!" && exit 1; else echo "--> APPS:FLOW: Found $(EDACTL_BIN)"; fi' ;\
-		for resource in "catalogs.appstore.eda.nokia.com" "registries.appstore.eda.nokia.com"; 	\
+		for resources in $(APPFLOW_RESOURCES_TYPES)												;\
 		do																						 \
 			COUNT=0																				;\
 			MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
 			RESOURCE_FOUND=0																	;\
-			echo "--> APPS:FLOW: Waiting for $${resource} - $$(date)"							;\
+			RESOURCE_TYPE=$$(echo "$${resources}" | cut -f1 -d'|')								;\
+			RESOURCE_NAME=$$(echo "$${resources}" | cut -f2 -d'|')								;\
+			echo "--> APPS:FLOW: Waiting for $${RESOURCE_TYPE} - $${RESOURCE_NAME} - $$(date)"	;\
 			while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
 				found=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD}		 \
-				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE} $${NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
+				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE_TYPE} $${RESOURCE_NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
 				if [[ "$${found}" == "yes" ]]; then												 \
-					echo "--> APPS:FLOW: $${resource} is available -- $$(date)"					;\
+					echo "--> APPS:FLOW: $${RESOURCE_TYPE} - $${RESOURCE_NAME} is available -- $$(date)";\
 					RESOURCE_FOUND=1															;\
 					break																		;\
 				fi																				;\
 				COUNT=$$((COUNT + 1))															;\
-				sleep 2s 																		;\
+				sleep 2 																		;\
 			done																				;\
 			if [[ $$RESOURCE_FOUND -ne 1 ]]; then												 \
 				echo																			;\
-				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE} -- $$(date)"	;\
+				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE_TYPE}:$${RESOURCE_NAME} -- $$(date)";\
 				echo 																			;\
 				exit 1																			;\
 			fi																					;\
@@ -667,7 +703,7 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) apps-is-appflow-ready ## Insta
 eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the playground packages
 	@{	\
 		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
-		echo "--> KPT: Setting SR Linux images: $(SRL_24_10_1_GHCR)"	;\
+		echo "--> KPT:PG: Configuring the playground package"		;\
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
 		--truncate-output=false \
 		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\

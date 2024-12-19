@@ -69,3 +69,15 @@
 # do not install cert-manager. Set to "yes" when you have your own cert-manager
 # in a "cert-manager" namespace
 # NO_CERT_MANAGER_INSTALL := yes
+
+# KPT init options
+# -----------------------------------------------------------------------------|
+
+# Ignore if a package was already init'd against a cluster (resourcegroup.yaml)
+# Use --force to overwrite an existing inventory
+# KPT_LIVE_INIT_FORCE := 1
+
+# Add --inventory-policy=adopt to live apply, this will allow kpt to adopt
+# already applied *unmanaged* resources that the kpt package is trying to
+# clear, it will update/reconcile any differences.
+# KPT_INVENTORY_ADOPT := 1
