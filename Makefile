@@ -602,7 +602,7 @@ apps-is-appflow-ready:
 			echo "--> APPS:FLOW: Waiting for $${resource} - $$(date)"							;\
 			while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
 				found=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD}		 \
-				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE} $${NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
+				-- bash -c "($(EDACTL_BIN) -o json get $${resource} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
 				if [[ "$${found}" == "yes" ]]; then												 \
 					echo "--> APPS:FLOW: $${resource} is available -- $$(date)"					;\
 					RESOURCE_FOUND=1															;\
