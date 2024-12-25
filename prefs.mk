@@ -34,6 +34,13 @@
 # EXT_IPV4_ADDR = "<LB IP or external route>"
 # EXT_IPV6_ADDR = "<Same thing but in ipv6>"
 
+# EDA CX options
+# -----------------------------------------------------------------------------|
+# Do not deploy simulator nodes in CX for the TopoNode resources
+# set to false when connecting hardware nodes to the cluster
+# or when simulators nodes are deployed by another system
+# SIMULATE := false
+
 # Don't prefer dual stack services if possible in the configured cluster.
 # -----------------------------------------------------------------------------|
 
