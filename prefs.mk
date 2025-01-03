@@ -38,7 +38,9 @@
 # -----------------------------------------------------------------------------|
 # Do not deploy simulator nodes in CX for the TopoNode resources
 # set to false when connecting hardware nodes to the cluster
-# or when simulators nodes are deployed by another system
+# or when simulators nodes are deployed by another system.
+# When set to false, the topology-load make target will be skipped and
+# no TopoNode resources will be created.
 # SIMULATE := false
 
 # Don't prefer dual stack services if possible in the configured cluster.

@@ -880,7 +880,7 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 	}
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap topology-load
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,)
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
