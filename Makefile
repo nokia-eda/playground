@@ -378,11 +378,11 @@ define INSTALL_KPT_PACKAGE
 		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"									;\
 		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)						;\
 		if [[ ! -f resourcegroup.yaml ]] || [[ $(KPT_LIVE_INIT_FORCE) -eq 1 ]]; then						 \
-			$(KPT) live init --force |& sed 's/^/    /'														;\
+			$(KPT) live init --force 2>&1 | sed 's/^/    /'													;\
 		else																								 \
 			echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Resource group found, don't re-init this package"	;\
 		fi																									;\
-		$(KPT) live apply $(KPT_LIVE_APPLY_ARGS) |& sed 's/^/    /'											;\
+		$(KPT) live apply $(KPT_LIVE_APPLY_ARGS) 2>&1 | sed 's/^/    /'										;\
 		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)						;\
 		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"						;\
 	}
