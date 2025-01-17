@@ -90,3 +90,9 @@
 # already applied *unmanaged* resources that the kpt package is trying to
 # clear, it will update/reconcile any differences.
 # KPT_INVENTORY_ADOPT := 1
+
+# PORT FORWARD options
+# -----------------------------------------------------------------------------|
+# Name of the eda-api service to port forward to, default: eda-api
+# For use when there are multiple eda-api loadbalancer services
+# PORT_FORWARD_TO_API_SVC := eda-api

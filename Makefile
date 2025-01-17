@@ -48,6 +48,7 @@ EDA_TRUSTMGR_NAMESPACE ?= eda-system
 EDA_USER_NAMESPACE ?= eda
 EDA_APPS_INSTALL_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
 ENGINECONFIG_CR_NAME ?= engine-config
+LB_POOL_NAME ?= kind
 
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
 EXT_HTTP_PORT ?= 9200
@@ -303,25 +304,34 @@ metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the loa
 						--timeout=120s | sed 's/^/    /';\
 	}
 
-LB_CFG_SRC := $(CFG)/metallb.yaml
+LB_CFG_SRC_ANNOUNCE ?= $(CFG)/metallb-config-L2Advertisement.yaml
+LB_CFG_SRC_POOL ?= $(CFG)/metallb-config-defaultPool.yaml
+KIND_BRIDGE_NAME ?= kind
 
-.PHONY: metallb-config
-metallb-config: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb config) @ ## Apply metallb address pools
+.PHONY: metallb-configure-pools
+metallb-configure-pools: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb IP pool configuration) @ ## Create metallb address pools
 ifdef NO_KIND
 	@if [[ -z "$(METALLB_VIP)" ]]; then echo "[ERROR] METALLB_VIP is not specified" && exit 1; fi;
 	@echo "--> LB: NO_KIND=$(NO_KIND) specified - using $(METALLB_VIP)"
-	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(METALLB_VIP)]" | $(KUBECTL) apply -f - | sed 's/^/    /'
+	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(METALLB_VIP)]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | sed 's/^/    /'
 else
-	$(eval KIND_SUBNETS=$(shell docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' kind))
+	$(eval KIND_SUBNETS=$(shell docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' $(KIND_BRIDGE_NAME)))
 	$(eval KIND_SUBNET=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep -v ':' | head -n 1 | awk -F'.' '{print $$1 "." $$2}'))
 	$(eval KIND_SUBNET6=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep ':' | head -n 1 | awk -F':' '{print $$1 ":" $$2 ":" $$3 ":" $$4}'))
 	@echo "--> LB: Detected IPv4 Subnet: $(KIND_SUBNET)"
 	@echo "--> LB: Detected IPv6 Subnet: $(KIND_SUBNET6)"
-	@cat $(LB_CFG_SRC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" | $(KUBECTL) apply -f - | sed 's/^/    /'
+	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | sed 's/^/    /'
 endif
 
+.PHONY: metallb-configure-speaker
+metallb-configure-speaker: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb L2 speaker config) @ ## Apply metallb L2 announcement speaker configuration
+	@cat $(LB_CFG_SRC_ANNOUNCE) | $(KUBECTL) apply -f - | sed 's/^/    /'
+
+.PHONY: metallb-configure
+metallb-configure: | $(BASE) metallb-configure-pools metallb-configure-speaker ; $(info --> LB: Applying metallb configuration) @ ## Apply metallb controller + speaker configuration
+
 .PHONY: metallb
-metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-config ## Load the metallb loadbalancer into the cluster
+metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-configure ## Load the metallb loadbalancer into the cluster
 
 .PHONY: cm-is-deployment-ready
 cm-is-deployment-ready: | $(BASE) $(KUBECTL) ; $(info --> CERT: Waiting for deployment to be ready) @ ## Is the deployment ready ?
@@ -691,7 +701,6 @@ define INSTALL_APP
 	}
 endef
 
-
 .PHONY: eda-install-apps
 eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) apps-is-appflow-ready ## Install EDA apps from the appstore catalog
 	@echo "--> INSTALL:APP: Installing apps from catalog $(CATALOG)"
@@ -713,6 +722,26 @@ eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the p
 .PHONY: eda-bootstrap
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PLAYGROUND),EDA PLAYGROUND)
+
+##@ Northbound extensions
+
+API_CFG_LB_SVC ?= $(CFG)/eda-api-svc.yaml
+
+.PHONY: eda-create-api-lb-svc
+eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBalancer Service) @ ## Create an additional API load-balancer service, req: API_LB_POOL_NAME=<lb pool name from where to allocate ip> opt: API_LB_SVC_NAME=<different name>
+	@{	\
+		setter_args=""																							;\
+		if [[ -z "$(API_LB_POOL_NAME)" ]]; then																	 \
+			echo "[ERROR] - API_LB_POOL_NAME, the name of the loadbalancer pool should be specified" && exit 1	;\
+		else																									 \
+			setter_args="API_LB_POOL_NAME=$(API_LB_POOL_NAME)"													;\
+		fi																										;\
+		if [[ ! -z "$(API_LB_SVC_NAME)" ]]; then																 \
+			setter_args="$${setter_args} API_LB_SVC_NAME=$(API_LB_SVC_NAME)"									;\
+		fi																										;\
+		setter_args="$$setter_args EDA_CORE_NAMESPACE=$(EDA_CORE_NAMESPACE)"									;\
+		cat $(API_CFG_LB_SVC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- $${setter_args} | $(KUBECTL) apply -f - | sed 's/^/    /';\
+	}
 
 ##@ Topology
 
@@ -739,6 +768,8 @@ topology-load:  ## Load a topology file TOPO=<file>
 
 ##@ Utility Functions
 
+PORT_FORWARD_TO_API_SVC ?= eda-api
+
 .PHONY: enable-ui-port-forward-service
 enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port forward systemd service
 	@{ \
@@ -761,7 +792,7 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/eda-api --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
+		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
 		eval $$port_forward_cmd ;\
 	}

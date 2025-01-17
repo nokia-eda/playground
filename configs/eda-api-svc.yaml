@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    eda.nokia.com/app: apiserver
+  annotations:
+    metallb.universe.tf/address-pool: lbPool-nb # kpt-set: ${API_LB_POOL_NAME}
+  name: eda-api-nb # kpt-set: ${API_LB_SVC_NAME}
+  namespace: eda-system # kpt-set: ${EDA_CORE_NAMESPACE}
+spec:
+  ports:
+    - name: apiserverhttps
+      port: 443
+      targetPort: 9443
+  selector:
+    eda.nokia.com/app: apiserver
+  sessionAffinity: ClientIP
+  type: LoadBalancer
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: PreferDualStack
