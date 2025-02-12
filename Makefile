@@ -800,7 +800,7 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 
 .PHONY: open-toolbox
 open-toolbox: ## Log into the toolbox pod
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -l
 
 .PHONY: e9s
 e9s: ## Run e9s application
