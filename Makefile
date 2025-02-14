@@ -35,11 +35,18 @@ else
 	ARCH := $(ARCH_QUERY)
 endif
 
-OS_QUERY := $(shell uname -s)
-ifeq ($(OS_QUERY), Darwin)
+# i.e Darwin / Linux
+UNAME := $(shell uname)
+# Lowercase - sane version
+OS := $(shell echo "$(UNAME)" | tr '[:upper:]' '[:lower:]')
+
+ifeq ($(OS), darwin)
 	XARGS_CMD ?= xargs -S 4096
 else
 	XARGS_CMD ?= xargs
+
+	EXT_IPV4_ADDR ?= $(shell ip route get 8.8.8.8 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
+	EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 endif
 
 EDA_CORE_NAMESPACE ?= eda-system
@@ -53,8 +60,7 @@ LB_POOL_NAME ?= kind
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
 EXT_HTTP_PORT ?= 9200
 EXT_HTTPS_PORT ?= 9443
-EXT_IPV4_ADDR ?= $(shell ip route get 8.8.8.8 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
-EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
+
 SINGLESTACK_SVCS ?= false
 SIMULATE ?= true
 HTTPS_PROXY ?= ""
@@ -65,10 +71,6 @@ http_proxy ?= ""
 no_proxy ?= ""
 LLM_API_KEY ?= ""
 
-# i.e Darwin / Linux
-UNAME := $(shell uname)
-# Lowercase - sane version
-OS := $(shell echo "$(UNAME)" | tr '[:upper:]' '[:lower:]')
 
 APPLY_SETTER_IMG=ghcr.io/srl-labs/kpt-apply-setters:0.1.1
 
@@ -507,8 +509,26 @@ configure-external-packages: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-w
 		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
 	}
 
+.PHONY: check-ext-access-vars
+check-ext-access-vars: ## Check if variables for external access are set
+ifeq ($(EXT_DOMAIN_NAME),)
+	$(error "EXT_DOMAIN_NAME variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(EXT_HTTPS_PORT),)
+	$(error "EXT_HTTPS_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(EXT_HTTP_PORT),)
+	$(error "EXT_HTTP_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
+	$(error "Either EXT_IPV4_ADDR or EXT_IPV6_ADDR variable must be set. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
 .PHONY: eda-configure-core
-eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file ## Configure the EDA core deployment before launching
+eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file check-ext-access-vars ## Configure the EDA core deployment before launching
 	@{	\
 		echo "--> KPT:CORE: Configuring the core package"	;\
 		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
