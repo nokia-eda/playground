@@ -100,4 +100,19 @@
 # Tools options
 # -----------------------------------------------------------------------------|
 # Repo to use to fetch edabuilder binary from. Defaults to nokia-eda/edabuilder
-# EDABUILDER_SRC := my-orf/edabuilder
+# EDABUILDER_SRC := my-org/edabuilder
+
+# Enable self-host operation via an eda-asset-host
+# -----------------------------------------------------------------------------|
+# Enable this to operate in self-host mode
+# USE_ASSET_HOST := 1
+
+# This can be FQDN, DNS or IP where the asset host can be reached
+# Do not add transport schemes (http/https/ssh) to ASSET_HOST
+# ASSET_HOST := eda-assets-01
+
+# Specify auth
+# ASSET_HOST_GIT_USERNAME := ""
+# ASSET_HOST_GIT_PASSWORD := ""
+# ASSET_HOST_ARTIFACTS_USERNAME := ""
+# ASSET_HOST_ARTIFACTS_PASSWORD := ""

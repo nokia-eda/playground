@@ -12,6 +12,10 @@ endif
 -include $(PG_PREFS_REAL_LOC)
 -include $(realpath $(TOP_DIR)/private/$(PLAYGROUND_PREFS_FILE))
 
+ifeq ($(USE_ASSET_HOST),1)
+include $(realpath $(TOP_DIR)/asset-host.conf.mk)
+$(info --> INFO: USE_ASSET_HOST=$(USE_ASSET_HOST) using ASSET_HOST=$(ASSET_HOST))
+endif
 
 ## Top level options
 BUILD ?= build
@@ -49,6 +53,7 @@ else
 	EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 endif
 
+# Top level options
 EDA_CORE_NAMESPACE ?= eda-system
 EDA_GOGS_NAMESPACE ?= eda-system
 EDA_TRUSTMGR_NAMESPACE ?= eda-system
@@ -72,7 +77,7 @@ no_proxy ?= ""
 LLM_API_KEY ?= ""
 
 
-APPLY_SETTER_IMG=ghcr.io/srl-labs/kpt-apply-setters:0.1.1
+APPLY_SETTER_IMG ?= ghcr.io/srl-labs/kpt-apply-setters:0.1.1
 
 CORE_IMAGE_REGISTRY=ghcr.io/nokia-eda
 SRL_IMAGE_REGISTRY=ghcr.io/nokia
@@ -129,8 +134,10 @@ GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range |
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
 ## Tool Versions:
+EDAADM_VERSION ?= v1.0.0
 EDABUILDER_VERSION ?= v1.0.0
 GH_VERSION ?= 2.67.0
+HELM_VERSION ?= v3.17.0
 K9S_VERSION ?= v0.32.5
 KIND_VERSION ?= v0.24.0
 KPT_VERSION ?= v1.0.0-beta.44
@@ -139,14 +146,17 @@ UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
 ## Tools:
-KIND := $(TOOLS)/kind-$(KIND_VERSION)
-KUBECTL := $(TOOLS)/kubectl-$(KUBECTL_VERSION)
-KPT ?= $(TOOLS)/kpt-$(KPT_VERSION)
-# Version not embedded here its the name we use to extract from tar also
-K9S ?= $(TOOLS)/k9s
-YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
+EDAADM ?= $(TOOLS)/edaadm-$(EDAADM_VERSION)
 GH ?= $(TOOLS)/gh
+HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
+K9S ?= $(TOOLS)/k9s-$(K9S_VERSION)
+KIND ?= $(TOOLS)/kind-$(KIND_VERSION)
+KPT ?= $(TOOLS)/kpt-$(KPT_VERSION)
+KUBECTL ?= $(TOOLS)/kubectl-$(KUBECTL_VERSION)
 UV ?= $(TOOLS)/uv
+YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
+
+## Curl options:
 CURL := curl --silent --fail --show-error
 
 ## Where to get things:
@@ -165,24 +175,26 @@ GH_K8s_HELM_URL ?= github.com/nokia-eda/connect-k8s-helm-charts.git
 
 ### EDA Components
 ifeq ($(GH_RO_TOKEN),)
-EDA_KPT_PKG_SRC := https://$(GH_KPT_URL)
-CATALOG_PKG_SRC := https://$(GH_CAT_URL)
-K8S_HELM_PKG_SRC := https://$(GH_K8s_HELM_URL)
+EDA_KPT_PKG_SRC ?= https://$(GH_KPT_URL)
+CATALOG_PKG_SRC ?= https://$(GH_CAT_URL)
+K8S_HELM_PKG_SRC ?= https://$(GH_K8s_HELM_URL)
 else
-EDA_KPT_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_KPT_URL)
-CATALOG_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_CAT_URL)
-K8S_HELM_PKG_SRC := https://$(GH_RO_TOKEN)@$(GH_K8s_HELM_URL)
+EDA_KPT_PKG_SRC ?= https://$(GH_RO_TOKEN)@$(GH_KPT_URL)
+CATALOG_PKG_SRC ?= https://$(GH_RO_TOKEN)@$(GH_CAT_URL)
+K8S_HELM_PKG_SRC ?= https://$(GH_RO_TOKEN)@$(GH_K8s_HELM_URL)
 endif
 
 ### Tools
-KIND_SRC := https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(OS)-$(ARCH)
-KUBECTL_SRC := https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(OS)/$(ARCH)/kubectl
-KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_VERSION)/kpt_$(OS)_$(ARCH)
+KIND_SRC ?= https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(OS)-$(ARCH)
+KUBECTL_SRC ?= https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(OS)/$(ARCH)/kubectl
+HELM_SRC ?= https://get.helm.sh/helm-$(HELM_VERSION)-$(OS)-$(ARCH).tar.gz
+KPT_SRC ?= https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_VERSION)/kpt_$(OS)_$(ARCH)
 # K9s uses the uname directly in its package name
-K9S_SRC := https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
-YQ_SRC := https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
+K9S_SRC ?= https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
+YQ_SRC ?= https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 EDABUILDER_SRC ?= nokia-eda/edabuilder
 
+EDAADM_SRC ?= https://github.com/nokia-eda/edaadm/releases/download/$(EDAADM_VERSION)/edaadm-$(OS)-$(ARCH)
 
 ## Create working directories
 
@@ -195,12 +207,17 @@ $(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 ## Download tools
 
 DOWNLOAD_TOOLS_LIST=
-DOWNLOAD_TOOLS_LIST += $(GH)
+DOWNLOAD_TOOLS_LIST += $(EDAADM)
+DOWNLOAD_TOOLS_LIST += $(HELM)
 DOWNLOAD_TOOLS_LIST += $(KIND)
 DOWNLOAD_TOOLS_LIST += $(KPT)
 DOWNLOAD_TOOLS_LIST += $(KUBECTL)
-DOWNLOAD_TOOLS_LIST += $(UV)
 DOWNLOAD_TOOLS_LIST += $(YQ)
+
+ifneq ($(USE_ASSET_HOST),1)
+DOWNLOAD_TOOLS_LIST += $(GH)
+DOWNLOAD_TOOLS_LIST += $(UV)
+endif
 
 .PHONY: download-tools
 download-tools: | $(BASE) $(DOWNLOAD_TOOLS_LIST) ## Download required tools
@@ -214,6 +231,7 @@ download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
 	@chmod a+x $(TOOLS)/edabuilder
 
 define download-bin
+    $(info --> INFO: Downloading $(2))
 	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi
 endef
 
@@ -225,7 +243,7 @@ endef
 # $6 - number of path components to strip (optional)
 # This does assume that $(1) on disk is equal to $(3)/$(4) where $(4) is the path+name of the bin inside the archive
 define download-bin-from-archive
-	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) $(if $(6),--strip-components=$(6),) -C $(3) $(4) && chmod +x $(1); fi 
+	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) $(if $(6),--strip-components=$(6),) --to-stdout -C $(3) $(4) > $(1) && chmod +x $(1); fi
 endef
 
 $(KIND): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kind is present in $(KIND))
@@ -233,6 +251,9 @@ $(KIND): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kind is present in $(KI
 
 $(KUBECTL): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kubectl is present in $(KUBECTL))
 	@$(call download-bin,$(KUBECTL),$(KUBECTL_SRC))
+
+$(HELM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring helm is present in $(HELM))
+	@$(call download-bin-from-archive,$(HELM),$(HELM_SRC),$(TOOLS),linux-amd64/helm,z,1)
 
 $(KPT): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kpt is present in $(KPT))
 	@$(call download-bin,$(KPT),$(KPT_SRC))
@@ -271,6 +292,8 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 		$(call download-bin-from-archive,$(UV),$$UV_SRC,$(TOOLS),uv-$${ARCH}-$${OS},z,1); \
 	}
 
+$(EDAADM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring edaadm is present in $(EDAADM))
+	@$(call download-bin,$(EDAADM),$(EDAADM_SRC))
 
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
@@ -549,6 +572,17 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt 
 		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
+# For the non-self-host case, the user must use the configs/kpt-setters.yaml file for any options
+ifeq ($(USE_ASSET_HOST),1)
+	@{	\
+		$(YQ) eval ".data.APP_REGISTRY_SKIPTLSVERIFY = \"$(APP_REGISTRY_SKIPTLSVERIFY)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.APP_REGISTRY_MIRROR = \"$(APP_REGISTRY_MIRROR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
+	}
+endif
 
 
 .PHONY: configure-external-packages
