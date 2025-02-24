@@ -134,6 +134,8 @@ KUBECTL_VERSION ?= v1.31.1
 KPT_VERSION ?= v1.0.0-beta.44
 K9S_VERSION ?= v0.32.5
 YQ_VERSION ?= v4.42.1
+GH_VERSION ?= 2.67.0
+UV_VERSION ?= 0.6.2
 
 ## Tools:
 KIND := $(TOOLS)/kind-$(KIND_VERSION)
@@ -142,6 +144,8 @@ KPT ?= $(TOOLS)/kpt-$(KPT_VERSION)
 # Version not embedded here its the name we use to extract from tar also
 K9S ?= $(TOOLS)/k9s
 YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
+GH ?= $(TOOLS)/gh
+UV ?= $(TOOLS)/uv
 CURL := curl --silent --fail --show-error
 
 ## Where to get things:
@@ -177,6 +181,7 @@ KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_V
 K9S_SRC := https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
 YQ_SRC := https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 
+
 ## Create working directories
 
 $(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
@@ -185,9 +190,12 @@ $(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
 $(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 	@mkdir -p $(TOOLS)
 
-## Download all the tools
+## Download tools
 .PHONY: download-tools
-download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) $(K9S) ## Download required and useful tools
+download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) $(GH) $(UV) ## Download required tools
+
+.PHONY: download-k9s
+download-k9s: | $(BASE) $(K9S) ## Download k9s
 
 define download-bin
 	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi
@@ -198,9 +206,10 @@ endef
 # $3 - where should tar extract this file ?
 # $4 - What is the path/filename inside the archive ?
 # $5 - tar options if its compressed etc
+# $6 - number of path components to strip (optional)
 # This does assume that $(1) on disk is equal to $(3)/$(4) where $(4) is the path+name of the bin inside the archive
 define download-bin-from-archive
-	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) -C $(3) $(4) && chmod +x $(1); fi 
+	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) $(if $(6),--strip-components=$(6),) -C $(3) $(4) && chmod +x $(1); fi 
 endef
 
 $(KIND): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kind is present in $(KIND))
@@ -217,6 +226,34 @@ $(K9S): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring k9s is present in $(K9S)
 
 $(YQ): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring yq is present in $(YQ))
 	@$(call download-bin,$(YQ),$(YQ_SRC))
+
+$(GH): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring gh is present in $(GH))
+	@{ \
+		OS="$(OS)"; \
+		EXT="tar.gz"; \
+		if [ "$(OS)" = "darwin" ]; then \
+			OS="macOS"; \
+			EXT="zip"; \
+		fi; \
+		GH_SRC="https://github.com/cli/cli/releases/download/v$(GH_VERSION)/gh_$(GH_VERSION)_$${OS}_$(ARCH).$${EXT}"; \
+		$(call download-bin-from-archive,$(GH),$${GH_SRC},$(TOOLS),gh_$(GH_VERSION)_$${OS}_$(ARCH)/bin/gh,z,2); \
+	}
+
+$(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
+	@{ \
+		if [ "$(ARCH)" = "arm64" ]; then \
+			ARCH="aarch64"; \
+		elif [ "$(ARCH)" = "amd64" ]; then \
+			ARCH="x86_64"; \
+		fi; \
+		if [ "$(OS)" = "darwin" ]; then \
+			OS="apple-darwin"; \
+		elif [ "$(OS)" = "linux" ]; then \
+			OS="unknown-linux-gnu"; \
+		fi; \
+		UV_SRC="https://github.com/astral-sh/uv/releases/download/$(UV_VERSION)/uv-$${ARCH}-$${OS}.tar.gz"; \
+		$(call download-bin-from-archive,$(UV),$$UV_SRC,$(TOOLS),uv-$${ARCH}-$${OS},z,1); \
+	}
 
 
 ## Download the kpt package and the catalog
