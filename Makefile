@@ -180,6 +180,7 @@ KPT_SRC := https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_V
 # K9s uses the uname directly in its package name
 K9S_SRC := https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
 YQ_SRC := https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
+EDABUILDER_SRC ?= nokia-eda/edabuilder
 
 
 ## Create working directories
@@ -196,6 +197,11 @@ download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) $(GH) $(UV) ## Downloa
 
 .PHONY: download-k9s
 download-k9s: | $(BASE) $(K9S) ## Download k9s
+
+.PHONY: download-edabuilder
+download-edabuilder: | $(BASE) ## Download edabuilder
+	@$(GH) release download --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
+	@chmod a+x $(TOOLS)/edabuilder
 
 define download-bin
 	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi

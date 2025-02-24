@@ -96,3 +96,8 @@
 # Name of the eda-api service to port forward to, default: eda-api
 # For use when there are multiple eda-api loadbalancer services
 # PORT_FORWARD_TO_API_SVC := eda-api
+
+# Tools options
+# -----------------------------------------------------------------------------|
+# Repo to use to fetch edabuilder binary from. Defaults to nokia-eda/edabuilder
+# EDABUILDER_SRC := my-orf/edabuilder
