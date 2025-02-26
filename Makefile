@@ -129,13 +129,14 @@ GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range |
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
 ## Tool Versions:
-KIND_VERSION ?= v0.24.0
-KUBECTL_VERSION ?= v1.31.1
-KPT_VERSION ?= v1.0.0-beta.44
-K9S_VERSION ?= v0.32.5
-YQ_VERSION ?= v4.42.1
+EDABUILDER_VERSION ?= v1.0.0
 GH_VERSION ?= 2.67.0
+K9S_VERSION ?= v0.32.5
+KIND_VERSION ?= v0.24.0
+KPT_VERSION ?= v1.0.0-beta.44
+KUBECTL_VERSION ?= v1.31.1
 UV_VERSION ?= 0.6.2
+YQ_VERSION ?= v4.42.1
 
 ## Tools:
 KIND := $(TOOLS)/kind-$(KIND_VERSION)
@@ -192,15 +193,24 @@ $(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 	@mkdir -p $(TOOLS)
 
 ## Download tools
+
+DOWNLOAD_TOOLS_LIST=
+DOWNLOAD_TOOLS_LIST += $(GH)
+DOWNLOAD_TOOLS_LIST += $(KIND)
+DOWNLOAD_TOOLS_LIST += $(KPT)
+DOWNLOAD_TOOLS_LIST += $(KUBECTL)
+DOWNLOAD_TOOLS_LIST += $(UV)
+DOWNLOAD_TOOLS_LIST += $(YQ)
+
 .PHONY: download-tools
-download-tools: | $(BASE) $(KIND) $(KUBECTL) $(KPT) $(YQ) $(GH) $(UV) ## Download required tools
+download-tools: | $(BASE) $(DOWNLOAD_TOOLS_LIST) ## Download required tools
 
 .PHONY: download-k9s
 download-k9s: | $(BASE) $(K9S) ## Download k9s
 
 .PHONY: download-edabuilder
-download-edabuilder: | $(BASE) ## Download edabuilder
-	@$(GH) release download --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
+download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
+	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
 	@chmod a+x $(TOOLS)/edabuilder
 
 define download-bin
