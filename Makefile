@@ -134,7 +134,7 @@ GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range |
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
 ## Tool Versions:
-EDAADM_VERSION ?= v1.0.0
+EDAADM_VERSION ?= v2.0.0
 EDABUILDER_VERSION ?= v1.0.0
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
