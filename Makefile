@@ -537,7 +537,7 @@ install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTER
 
 
 .PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) ## Instantiate kpt setters work file from a template and set the known values
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
 		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then \
 			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE); \
