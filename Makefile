@@ -134,7 +134,6 @@ GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range |
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
 ## Tool Versions:
-EDAADM_VERSION ?= v2.0.0
 EDABUILDER_VERSION ?= v1.0.0
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
@@ -146,7 +145,6 @@ UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
 ## Tools:
-EDAADM ?= $(TOOLS)/edaadm-$(EDAADM_VERSION)
 GH ?= $(TOOLS)/gh
 HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
 K9S ?= $(TOOLS)/k9s-$(K9S_VERSION)
@@ -194,8 +192,6 @@ K9S_SRC ?= https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_
 YQ_SRC ?= https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 EDABUILDER_SRC ?= nokia-eda/edabuilder
 
-EDAADM_SRC ?= https://github.com/nokia-eda/edaadm/releases/download/$(EDAADM_VERSION)/edaadm-$(OS)-$(ARCH)
-
 ## Create working directories
 
 $(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
@@ -207,7 +203,6 @@ $(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 ## Download tools
 
 DOWNLOAD_TOOLS_LIST=
-DOWNLOAD_TOOLS_LIST += $(EDAADM)
 DOWNLOAD_TOOLS_LIST += $(HELM)
 DOWNLOAD_TOOLS_LIST += $(KIND)
 DOWNLOAD_TOOLS_LIST += $(KPT)
@@ -291,9 +286,6 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 		UV_SRC="https://github.com/astral-sh/uv/releases/download/$(UV_VERSION)/uv-$${ARCH}-$${OS}.tar.gz"; \
 		$(call download-bin-from-archive,$(UV),$$UV_SRC,$(TOOLS),uv-$${ARCH}-$${OS},z,1); \
 	}
-
-$(EDAADM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring edaadm is present in $(EDAADM))
-	@$(call download-bin,$(EDAADM),$(EDAADM_SRC))
 
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
