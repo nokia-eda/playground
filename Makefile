@@ -253,7 +253,7 @@ $(KUBECTL): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kubectl is present i
 	@$(call download-bin,$(KUBECTL),$(KUBECTL_SRC))
 
 $(HELM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring helm is present in $(HELM))
-	@$(call download-bin-from-archive,$(HELM),$(HELM_SRC),$(TOOLS),linux-amd64/helm,z,1)
+	@$(call download-bin-from-archive,$(HELM),$(HELM_SRC),$(TOOLS),${OS}-${ARCH}/helm,z,1)
 
 $(KPT): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kpt is present in $(KPT))
 	@$(call download-bin,$(KPT),$(KPT_SRC))
