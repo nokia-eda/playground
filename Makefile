@@ -610,9 +610,7 @@ ifeq ($(EXT_HTTP_PORT),)
 	$(error "EXT_HTTP_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
 endif
 
-ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
-	$(error "Either EXT_IPV4_ADDR or EXT_IPV6_ADDR variable must be set. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
-endif
+
 
 .PHONY: eda-configure-core
 eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file check-ext-access-vars ## Configure the EDA core deployment before launching
@@ -899,7 +897,7 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
+		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address localhost $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
 		eval $$port_forward_cmd ;\
 	}
