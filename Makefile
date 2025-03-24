@@ -913,6 +913,10 @@ open-toolbox: ## Log into the toolbox pod
 e9s: ## Run e9s application
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
+.PHONY: install-docker
+install-docker: ## Install docker-ce engine
+	$(CURL) -L https://containerlab.dev/setup | sudo -E bash -s "install-docker"
+
 # NODE CLI access
 define NODE_CLI
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
