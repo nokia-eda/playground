@@ -298,10 +298,10 @@ $(EDAADM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring edaadm is present in 
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
 #	$(KPT) pkg get $(EDA_KPT_PKG_SRC) $(KPT_PKG)
-	git clone $(EDA_KPT_PKG_SRC) $(KPT_PKG)
+	git clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | sed 's/^/    /'
 
 $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in $(CATALOG))
-	git clone $(CATALOG_PKG_SRC) $(CATALOG)
+	git clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | sed 's/^/    /'
 
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog 
@@ -309,12 +309,12 @@ download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog
 .PHONY: update-pkgs
 update-pkgs: ## Fetch eda kpt and catalog updates
 #	$(KPT) pkg update $(KPT_PKG)
-	git -C $(KPT_PKG) pull
-	git -C $(CATALOG) pull
-	git -C $(CATALOG) pull --tags --force
+	git -C $(KPT_PKG) pull 2>&1 | sed 's/^/    /'
+	git -C $(CATALOG) pull 2>&1 | sed 's/^/    /'
+	git -C $(CATALOG) pull --tags --force 2>&1 | sed 's/^/    /'
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
-	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM)
+	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | sed 's/^/    /'
 
 .PHONY: download-connect-k8s-helm-charts
 download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
@@ -342,7 +342,7 @@ cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane
 			fi																				;\
 		done																				;\
 		if [[ "$${MATCHED}" == "0" ]]; then													 \
-			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml	;\
+			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml 2>&1 | sed 's/^/    /' ;\
 		else																				 \
 			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
 		fi																					;\
@@ -352,7 +352,7 @@ cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane
 cluster-wait-for-node-ready: | $(BASE) ; $(info --> KIND: wait for k8s node to be ready) @ ## Wait for the k8s cp to declare the node to be ready
 	@{	\
 		START=$$(date +%s)																;\
-		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY)	;\
+		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY) 2>&1 | sed 's/^/    /' ;\
 		echo "--> KIND: Node ready check took $$(( $$(date +%s) - $$START ))s" ;\
 	}
 
