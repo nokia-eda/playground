@@ -53,7 +53,16 @@ else
 	EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 endif
 
+OK := [  \e[0;32mOK\033[0m  ]
+ERROR := [ \e[0;31mFAIL\033[0m ]
+
 # Top level options
+
+# units: Kb - default output of df
+MIN_DISK_SPACE ?= 30000000
+FS_NOTIFY_MAX_USER_WATCHES ?= 1048576
+FD_NOTIFY_MAX_USER_INSTANCES ?= 512
+
 EDA_CORE_NAMESPACE ?= eda-system
 EDA_GOGS_NAMESPACE ?= eda-system
 EDA_TRUSTMGR_NAMESPACE ?= eda-system
@@ -532,7 +541,7 @@ install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTER
 instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
 		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then \
-			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE); \
+			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE);\
 		fi; \
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
 		export cluster_pod_cidr=$$($(GET_POD_CIDR))				;\
@@ -905,11 +914,91 @@ open-toolbox: ## Log into the toolbox pod
 e9s: ## Run e9s application
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
+##@ Host setup
+
 .PHONY: install-docker
 install-docker: ## Install docker-ce engine
-	$(CURL) -L https://containerlab.dev/setup | sudo -E bash -s "install-docker"
+	$(CURL) -L https://containerlab.dev/setup | bash -s "install-docker"
 
-# NODE CLI access
+.PHONY: configure-sysctl-params
+configure-sysctl-params:
+	@{	\
+		(sudo mkdir -p /etc/sysctl.d) 															&& \
+		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | sed 's/^/    /') && \
+		(sudo sysctl --system | sed 's/^/    /')												&& \
+		echo "--> INFO: Reload daemon and restart docker service"								&& \
+		(sudo systemctl daemon-reload)															&& \
+		(sudo systemctl restart docker) ;\
+	}
+
+define is-command-present
+{	\
+	bin=$$(echo "$1" | cut -f1 -d'|')															;\
+	remedy=$$(echo "$1" | cut -f2- -d'|')														;\
+	if ! command -v "$${bin}" 2>&1 >/dev/null; then												 \
+    	echo -e "--> HOST: $(ERROR) $${bin} not found in \$$PATH - $${remedy//_/' '}" && exit 1	;\
+	else 																						 \
+		echo -e "--> HOST: $(OK) Found host tools $$(command -v $$bin)"							;\
+	fi 																							;\
+}
+endef
+
+define is-there-enough-free-disk-space
+{	\
+	available_space=$$(df --output=avail $(TOP_DIR) | tail -n1) ;\
+	if [[ $${available_space} -lt $(1) ]]; then														 \
+		echo -e "--> HOST: $(ERROR) Available disk space is lower than the recommended threshold"	;\
+		echo "                  See: https://docs.eda.dev/getting-started/try-eda/"					;\
+		df -h $(TOP_DIR) 2>&1 | sed 's/^/                  /'										;\
+		exit 1 																						;\
+	else 																							 \
+		echo -e "--> HOST: $(OK) Available disk requirments meet"									;\
+	fi 																								;\
+}
+endef
+
+define is-user-in-group
+{	\
+	user=$$(whoami)																		;\
+	group=$(1)																			;\
+	if id -nG "$${user}" | grep -qw "$${group}"; then 									 \
+		echo -e "--> HOST: $(OK) User:$${user} is part of the group:$${group}"			;\
+	else 																				 \
+		echo -e "--> HOST: $(ERROR) User:$${user} is not part of the group:$${group}"	;\
+		echo    "                    Please add $${user} to the $${group}"				;\
+		echo    "                    sudo usermod -aG $${group} $${user}"				;\
+		exit 1 																			;\
+	fi 																					;\
+}
+endef
+
+define check-sysctl-value
+{	\
+	value=$$(sysctl -n $(1)) 																		;\
+	if [[ $$value -lt $2 ]]; then 																	 \
+		echo -e "--> HOST: $(ERROR) sysctl param $1=$$value is lower than the recommended value $2"	;\
+		echo "                    Please run make configure-sysctl-params" 							;\
+		exit 1 																						;\
+	else 																							 \
+		echo -e "--> HOST: $(OK) sysctl $1=$2" 														;\
+	fi 																								;\
+}
+endef
+# Use _ to denote space since make just splits it in a list :bleh
+# binary_name|error_message_when_not_found
+LIST_OF_HOST_TOOLS=
+LIST_OF_HOST_TOOLS += git|Please_install_git_using_the_system_package_manager
+LIST_OF_HOST_TOOLS += docker|Please_run:_make_install-docker
+
+.PHONY: verify-host-config
+verify-host-config: ## Verify host has the required params for a kind based setup
+	@$(foreach tool,$(LIST_OF_HOST_TOOLS),$(call is-command-present,$(tool));)
+	@$(call is-user-in-group,docker)
+	@$(call is-there-enough-free-disk-space,$(MIN_DISK_SPACE))
+	@$(call check-sysctl-value,fs.inotify.max_user_watches,$(FS_NOTIFY_MAX_USER_WATCHES))
+	@$(call check-sysctl-value,fs.inotify.max_user_instances,$(FD_NOTIFY_MAX_USER_INSTANCES))
+
+##@ NODE CLI access
 define NODE_CLI
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
 endef
