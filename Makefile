@@ -231,7 +231,7 @@ download-k9s: | $(BASE) $(K9S) ## Download k9s
 
 .PHONY: download-edabuilder
 download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
-	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
+	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
 	@chmod a+x $(TOOLS)/edabuilder
 
 define download-bin
