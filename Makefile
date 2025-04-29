@@ -166,8 +166,10 @@ EDA_APPS_VERSION ?= 24.12.4
 ### Toplogy loader configMap name is eda-topology >= 25.x else topo-config
 ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
 USE_BULK_APP_INSTALL ?= 0
+TOPO_CONFIGMAP_NAME ?= topo-config
 else
 USE_BULK_APP_INSTALL ?= 1
+TOPO_CONFIGMAP_NAME ?= eda-topology
 endif
 
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
@@ -891,9 +893,9 @@ define BUILD_BULK_CRS
 		export single_app_cr=$(APPS_INSTALL_CRS)/$${APP}-$${OP}-cr.yaml			;\
 		if [ ! -f $${single_app_cr} ]; then echo "[ERROR] APP install cr does not exist - $${single_app_cr}"  && exit 1; fi;\
 		$(YQ) -i '.spec.input.apps += (load(env(single_app_cr)).spec.input.apps[0])' $${BULKCR}	;\
-		echo "--> APP:BULK: Adding $${APP} to bulk $${OP} workflow cr"			;\
+		echo "--> INSTALL:APP:BULK: Adding $${APP} to bulk $${OP} workflow cr"	;\
 	done																		;\
-	echo "--> APP:BULK: Done $${BULKCR}"										;\
+	echo "--> INSTALL:APP:BULK: Done $${BULKCR}"								;\
 }
 endef
 
@@ -940,11 +942,11 @@ endef
 .PHONY: eda-install-apps
 eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) $(YQ) apps-is-appflow-ready ## Install EDA apps from the appstore catalog
 	@echo "--> INFO: EDA_APPS_VERSION=$(EDA_APPS_VERSION)"
-ifdef USE_BULK_APP_INSTALL
+ifeq ($(USE_BULK_APP_INSTALL),1)
 	@$(call BUILD_BULK_CRS,$(APP_INSTALL_BULK_TEMPLATE),$(APP_INSTALL_BULK_CR),$(EDA_APPS_INSTALL_NAMESPACE),$(APP_INSTALL_BULK_WF_NAME),install)
 	@{	\
 		apps=($(APPS_INSTALL_LIST_BUILTIN))																;\
-		echo "--> APP:BULK: Installing $${#apps[@]} apps in bulk mode from catalog $(CATALOG)"	;\
+		echo "--> INSTALL:APP:BULK: Installing $${#apps[@]} apps in bulk mode from catalog $(CATALOG)"	;\
 	}
 	@$(call RUN_APP_WF,$(APP_INSTALL_BULK_WF_NAME),$(APP_INSTALL_BULK_CR),install)
 else
@@ -992,14 +994,14 @@ eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBala
 
 .PHONY: template-topology
 template-topology:  ## Create topology config-map from the topology input
-	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "eda-topology"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
+	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
 
 
 .PHONY: topology-load
 topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
-		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "eda-topology"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
+		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
 		echo "--> TOPO: config created in cluster"			;\
 		export POD_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
