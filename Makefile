@@ -157,6 +157,25 @@ KUBECTL_VERSION ?= v1.31.1
 UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
+## EDA Versions and Decisions
+EDA_CORE_VERSION ?= 24.12.4
+EDA_APPS_VERSION ?= 24.12.4
+
+### Release specifc options:
+### Bulk app install mode is available >= 25.x
+### Toplogy loader configMap name is eda-topology >= 25.x else topo-config
+ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
+USE_BULK_APP_INSTALL ?= 0
+else
+USE_BULK_APP_INSTALL ?= 1
+endif
+
+ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
+IS_EDA_APPS_VERSION_24X ?= 1
+else
+IS_EDA_APPS_VERSION_24X ?= 0
+endif
+
 ## Tools:
 GH ?= $(TOOLS)/gh
 HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
@@ -315,12 +334,44 @@ $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in 
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog 
 
+# $1 - tag to checkout
+# $2 - Location of the repo
+define checkout-repo-at-tag
+{	\
+	VERSION=$(1)																;\
+	REPO=$(2)																	;\
+	echo "--> INFO: Selected version: $${VERSION}"								;\
+	git -C $${REPO} fetch 2>&1 | $(INDENT_OUT)									;\
+	tag="v$${VERSION}"															;\
+	HEAD=$$(git -C $${REPO} rev-parse HEAD)										;\
+	if [[ "$$(git -C $${REPO} tag -l $${tag})" == "" ]]; then					 \
+		echo "[ERROR]: $${VERSION} does not exist in $${REPO}"					;\
+		echo "         Do you need to run make update-pkgs ?"					;\
+		exit 1																	;\
+	fi																			;\
+	TAG_REF=$$(git -C $${REPO} rev-parse $${tag})								;\
+	if [[ "$${TAG_REF}" == "$${HEAD}" ]]; then									 \
+		echo "--> INFO: $${REPO} is at $${VERSION}"								;\
+		exit 0																	;\
+	fi																			;\
+	if [[ "$$(git -C $${REPO} status --porcelain --untracked-files=no)" != "" ]];\
+	then																		 \
+		echo "[ERROR]: There are user customizations present in $${REPO}"		;\
+		echo "         Please reset or stash: 'git -C $${REPO} stash'"			;\
+		exit 1																	;\
+	fi																			;\
+	git -C $${REPO} checkout $${tag} 2>&1 | $(INDENT_OUT)						;\
+	echo "--> INFO: $${REPO} is now at $$(git -C $${REPO} tag --points-at HEAD)";\
+}
+endef
+
 .PHONY: update-pkgs
 update-pkgs: ## Fetch eda kpt and catalog updates
-#	$(KPT) pkg update $(KPT_PKG)
-	git -C $(KPT_PKG) pull 2>&1 | sed 's/^/    /'
-	git -C $(CATALOG) pull 2>&1 | sed 's/^/    /'
-	git -C $(CATALOG) pull --tags --force 2>&1 | sed 's/^/    /'
+	git -C $(KPT_PKG) fetch 2>&1 | sed 's/^/    /'
+	git -C $(CATALOG) fetch 2>&1 | sed 's/^/    /'
+	git -C $(CATALOG) fetch --tags --force --all 2>&1 | sed 's/^/    /'
+	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG))
+	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG))
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
 	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | sed 's/^/    /'
@@ -636,6 +687,7 @@ eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file check-ex
 
 .PHONY: eda-install-core
 eda-install-core: | $(BASE) $(KPT) ; $(info --> KPT: Launching EDA) @ ## Base install of EDA in a cluster
+	@echo "--> INFO: EDA_CORE_VERSION=$(EDA_CORE_VERSION)"
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_CORE),EDA CORE)
 
 .PHONY: is-ce-first-commit-done
@@ -714,6 +766,9 @@ eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core service
 # The order of this list how they get installed
 APPS_INSTALL_LIST_BUILTIN=
 APPS_INSTALL_LIST_BUILTIN += aaa
+ifneq ($(IS_EDA_APPS_VERSION_24X),1)
+APPS_INSTALL_LIST_BUILTIN += aifabrics
+endif
 APPS_INSTALL_LIST_BUILTIN += bootstrap
 APPS_INSTALL_LIST_BUILTIN += components
 APPS_INSTALL_LIST_BUILTIN += config
@@ -1189,6 +1244,21 @@ try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if 
 	@echo "--> INFO: EDA is launched"
 	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
+
+##@ Help me
+
 .PHONY: help
 help:  ## Show the help menu
 	@sed -ne 's/^\([^[:space:]]*\):.*##/\1\t|\t/p' $(MAKEFILE_LIST) | sort | column -t -s $$'\t' | pager
+
+.PHONY: ls-versions-core
+ls-versions-core: | $(KPT_PKG) ## List the core versions available in the kpt package
+	@echo "--> INFO: Available core versions are:"
+	@git -C $(KPT_PKG) tag | sort --version-sort --reverse | $(INDENT_OUT)
+	@echo "--> INFO: Selected core version is $(EDA_CORE_VERSION)"
+
+.PHONY: ls-versions-apps
+ls-versions-apps: | $(CATALOG) ## List the app sets available in the catalog
+	@echo "--> INFO: Available app sets are:"
+	@git -C $(CATALOG) tag --list 'v[0-9]*' | sort --version-sort --reverse | $(INDENT_OUT)
+	@echo "--> INFO: Selected app set is $(EDA_APPS_VERSION)"

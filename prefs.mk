@@ -3,6 +3,14 @@
 # and the default values specified in the Makefile.
 # To enable an option simply uncomment a line and give it a value
 
+# Version selector for eda packages
+# -----------------------------------------------------------------------------|
+# List core versions using        make ls-versions-core
+# List catalog versions using     make ls-versions-apps
+#
+# EDA_CORE_VERSION := 25.4.1
+# EDA_APPS_VERSION := 25.4.1
+
 # KinD cluster options
 # -----------------------------------------------------------------------------|
 # Do not deploy the kind cluster
