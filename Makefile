@@ -21,6 +21,7 @@ endif
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
 TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
+SIMTOPO ?= $(TOP_DIR)/topology/00-sim-config.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
 
@@ -158,8 +159,8 @@ UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
-EDA_CORE_VERSION ?= 24.12.4
-EDA_APPS_VERSION ?= 24.12.4
+EDA_CORE_VERSION ?= 25.4.1
+EDA_APPS_VERSION ?= 25.4.1
 
 ### Release specifc options:
 ### Bulk app install mode is available >= 25.x
@@ -167,9 +168,11 @@ EDA_APPS_VERSION ?= 24.12.4
 ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
 USE_BULK_APP_INSTALL ?= 0
 TOPO_CONFIGMAP_NAME ?= topo-config
+IS_EDA_CORE_VERSION_24X ?= 1
 else
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
+IS_EDA_CORE_VERSION_24X ?= 0
 endif
 
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
@@ -743,11 +746,16 @@ define WAIT_FOR_DEP
 	}
 endef
 
+CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox
+ifeq ($(IS_EDA_CORE_VERSION_24X),0)
+CE_DEPLOYMENT_LIST+=eda-cert-checker
+endif
+
 .PHONY: eda-is-core-deployment-ready
 eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core pods to launch and be ready
 	@$(call WAIT_FOR_DEP,eda-ce)
 	@{ \
-		CE_CHILDREN_DEPLOYMENTS_LIST="eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox"; \
+		CE_CHILDREN_DEPLOYMENTS_LIST="$(CE_DEPLOYMENT_LIST)"; \
 		if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig engine-config -o jsonpath='{.spec.simulate}')" == "true" ]]; then \
 			CE_CHILDREN_DEPLOYMENTS_LIST="$$CE_CHILDREN_DEPLOYMENTS_LIST eda-cx"; \
 		fi; \
@@ -1006,6 +1014,7 @@ topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
 		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
+		if [[ $(IS_EDA_CORE_VERSION_24X) -ne 0 ]]; then	$(KUBECTL) --namespace $(EDA_USER_NAMESPACE) apply -f $(SIMTOPO); fi ;\
 		echo "--> TOPO: config created in cluster"			;\
 		export POD_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
@@ -1043,7 +1052,7 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-		port_forward_cmd="$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443" ;\
+		port_forward_cmd="nohup $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443 > /dev/null 2>&1 &" ;\
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
 		eval $$port_forward_cmd ;\
 	}
@@ -1246,9 +1255,9 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 	}
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,)
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) start-ui-port-forward
 	@echo "--> INFO: EDA is launched"
-	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
+#	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
 
 ##@ Help me
@@ -1268,3 +1277,21 @@ ls-versions-apps: | $(CATALOG) ## List the app sets available in the catalog
 	@echo "--> INFO: Available app sets are:"
 	@git -C $(CATALOG) tag --list 'v[0-9]*' | sort --version-sort --reverse | $(INDENT_OUT)
 	@echo "--> INFO: Selected app set is $(EDA_APPS_VERSION)"
+
+
+define __mkfile1337_internal_state
+column -s '|' -t <<'EOF'
+TOP_DIR | $(TOP_DIR)
+TIMEOUT_NODE_READY | $(TIMEOUT_NODE_READY)
+KIND_CLUSTER_NAME | $(KIND_CLUSTER_NAME)
+CE_DEPLOYMENT_LIST | $(CE_DEPLOYMENT_LIST)
+EDA_CORE_VERSION | $(EDA_CORE_VERSION)
+EDA_APPS_VERSION | $(EDA_APPS_VERSION)
+EOF
+endef
+
+export mkfile1337_internal_state = $(call __mkfile1337_internal_state)
+
+# _ hides the target from shell auto completion
+.PHONY: _ls-playground-state
+_ls-playground-state:; @ eval "$$mkfile1337_internal_state"
