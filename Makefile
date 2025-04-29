@@ -342,41 +342,45 @@ define checkout-repo-at-tag
 {	\
 	VERSION=$(1)																		;\
 	REPO=$(2)																			;\
-	echo "--> INFO: Selected version: $${VERSION}"										;\
+	echo "--> INFO: $${REPO} - selected version: $${VERSION}"							;\
 	git -C $${REPO} fetch 2>&1 | $(INDENT_OUT)											;\
 	tag="v$${VERSION}"																	;\
 	HEAD=$$(git -C $${REPO} rev-parse HEAD)												;\
 	if [[ "$$(git -C $${REPO} tag -l $${tag})" == "" ]]; then							 \
+		echo ""																			;\
 		echo "[ERROR]: $${VERSION} does not exist in $${REPO}"							;\
 		echo "         Do you need to run make update-pkgs ?"							;\
 		exit 1																			;\
 	fi																					;\
 	TAG_REF=$$(git -C $${REPO} rev-parse $${tag})										;\
 	if [[ "$${TAG_REF}" == "$${HEAD}" ]]; then											 \
-		echo "--> INFO: $${REPO} is at $${VERSION}"										;\
+		echo "--> INFO: $${REPO} - is at $${VERSION}"									;\
 		exit 0																			;\
 	fi																					;\
 	if [[ "$$(git -C $${REPO} status --porcelain --untracked-files=no)" != "" ]]		;\
 	then																				 \
+		echo ""																			;\
 		echo "[ERROR]: There are user customizations present in $${REPO}"				;\
 		echo "         Please reset or stash: 'git -C $${REPO} stash'"					;\
 		exit 1																			;\
 	fi																					;\
 	git -C $${REPO} -c advice.detachedHead=false checkout $${tag} 2>&1 | $(INDENT_OUT)	;\
-	echo "--> INFO: $${REPO} is now at $$(git -C $${REPO} tag --points-at HEAD)"		;\
+	echo "--> INFO: $${REPO} - is now at $$(git -C $${REPO} tag --points-at HEAD)"		;\
 }
 endef
 
 .PHONY: update-pkgs
 update-pkgs: | $(KPT_PKG) $(CATALOG) ## Fetch eda kpt and catalog updates
-	git -C $(KPT_PKG) fetch 2>&1 | sed 's/^/    /'
-	git -C $(CATALOG) fetch 2>&1 | sed 's/^/    /'
-	git -C $(CATALOG) fetch --tags --force --all 2>&1 | sed 's/^/    /'
+	@echo "--> INFO: Updating $(KPT_PKG)"
+	@git -C $(KPT_PKG) fetch 2>&1 | $(INDENT_OUT)
+	@echo "--> INFO: Updating $(CATALOG)"
+	@git -C $(CATALOG) fetch 2>&1 | $(INDENT_OUT)
+	@git -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG))
 	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG))
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
-	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | sed 's/^/    /'
+	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | $(INDENT_OUT)
 
 .PHONY: download-connect-k8s-helm-charts
 download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
