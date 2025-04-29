@@ -1,0 +1,10 @@
+apiVersion: core.eda.nokia.com/v1
+kind: Workflow
+metadata:
+  name: nokia-apps-bulk-install
+  namespace: default
+spec:
+  type: app-installer
+  input:
+    operation: install
+    apps: []
