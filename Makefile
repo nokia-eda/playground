@@ -992,14 +992,14 @@ eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBala
 
 .PHONY: template-topology
 template-topology:  ## Create topology config-map from the topology input
-	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
+	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "eda-topology"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
 
 
 .PHONY: topology-load
 topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
-		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "topo-config"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
+		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "eda-topology"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
 		echo "--> TOPO: config created in cluster"			;\
 		export POD_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
