@@ -1014,7 +1014,7 @@ topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
 		echo "--> TOPO: JSON Processing"					;\
 		$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO) | $(KUBECTL)  --namespace $(EDA_USER_NAMESPACE) apply -f -	;\
-		if [[ $(IS_EDA_CORE_VERSION_24X) -ne 0 ]]; then	$(KUBECTL) --namespace $(EDA_USER_NAMESPACE) apply -f $(SIMTOPO); fi ;\
+		if [[ $(IS_EDA_CORE_VERSION_24X) -eq 0 ]]; then	$(KUBECTL) --namespace $(EDA_USER_NAMESPACE) apply -f $(SIMTOPO); fi ;\
 		echo "--> TOPO: config created in cluster"			;\
 		export POD_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pod -l eda.nokia.com/app=apiserver -o jsonpath="{.items[0].metadata.name}"); \
 		echo "--> TOPO: Using POD_NAME: $$POD_NAME"			;\
@@ -1055,6 +1055,8 @@ start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to 
 		port_forward_cmd="nohup $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443 > /dev/null 2>&1 &" ;\
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
 		eval $$port_forward_cmd ;\
+		PORT_FWD_PID=$$!			;\
+		echo "--> Started background port forward with process id: $${PORT_FWD_PID}"	;\
 	}
 
 
