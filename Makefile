@@ -1244,15 +1244,15 @@ list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the e
 .PHONY: kpt-set-ext-arm-images
 kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the images
 	@{	\
-		$(YQ) eval ".data.CMCA_IMG = \"quay.io/jetstack/cert-manager-cainjector:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMCA_IMG = \"quay.io/jetstack/cert-manager-cainjector:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.TRUSTMGRBUNDLE_IMG = \"quay.io/jetstack/cert-manager-package-debian:20210119.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.TRUSTMGR_IMG = \"quay.io/jetstack/trust-manager:v0.9.1\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CMCT_IMG = \"quay.io/jetstack/cert-manager-controller:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CMWH_IMG = \"quay.io/jetstack/cert-manager-webhook:v1.14.4\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CSI_DRIVER_IMG = \"quay.io/jetstack/cert-manager-csi-driver:v0.8.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.TRUSTMGR_IMG = \"quay.io/jetstack/trust-manager:v0.15.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMCT_IMG = \"quay.io/jetstack/cert-manager-controller:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMWH_IMG = \"quay.io/jetstack/cert-manager-webhook:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_DRIVER_IMG = \"quay.io/jetstack/cert-manager-csi-driver:v0.10.1\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.FB_IMG = \"cr.fluentbit.io/fluent/fluent-bit:3.0.7\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.GOGS_IMG_TAG = \"ghcr.io/gogs/gogs:0.13.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CSI_REGISTRAR_IMG = \"k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.10.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_REGISTRAR_IMG = \"k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
