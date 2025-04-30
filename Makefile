@@ -1057,15 +1057,15 @@ start-ui-port-forward: | $(BUILD) $(KUBECTL) stop-ui-port-forward ## Start a por
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi 																									;\
 		eval $$port_forward_cmd 																																												;\
 		PORT_FWD_PID=$$!																																														;\
-		sleep 10s ;\
-		if ! kill -0 $${PORT_FWD_PID} > /dev/null 2>&1 ; then																																																 \
+		sleep 10s																																																;\
+		if ! kill -0 $${PORT_FWD_PID} > /dev/null 2>&1 ; then																																					 \
 			echo ""																																																;\
-			echo "[ERROR] Could not start port forward process $${PORT_FWD_PID} died"																																	;\
-			cat $${STDERR_LOG} | $(INDENT_OUT_ERROR)																																									;\
+			echo "[ERROR] Could not start port forward process $${PORT_FWD_PID} died"																															;\
+			cat $${STDERR_LOG} | $(INDENT_OUT_ERROR)																																							;\
 			echo "        Perhaps something is already bound on 0.0.0.0:$${CLUSTER_EXT_HTTPS_PORT} ?"																											;\
-			echo "        Port binds can be checked using one of the below commands:"																																						;\
-			echo "          ss -ltupnHO src 0.0.0.0:9443"																																						;\
-			echo "          netstat -ltupn src | grep 0.0.0.0:9443"																																				;\
+			echo "        Port binds can be checked using one of the below commands:"																															;\
+			echo "          ss -ltupnHO src 0.0.0.0:$${CLUSTER_EXT_HTTPS_PORT}"																																	;\
+			echo "          netstat -ltupn src | grep 0.0.0.0:$${CLUSTER_EXT_HTTPS_PORT}"																														;\
 			exit 1																																																;\
 		fi																																																		;\
 		echo "--> Started background port forward with process id: $${PORT_FWD_PID}"																															;\
