@@ -197,6 +197,7 @@ CURL := curl --silent --fail --show-error
 SED ?= sed
 
 INDENT_OUT := $(SED) 's/^/    /'
+INDENT_OUT_ERROR := $(SED) 's/^/        /'
 
 ## Where to get things:
 
@@ -1046,17 +1047,41 @@ enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port for
 	}
 
 .PHONY: start-ui-port-forward
-start-ui-port-forward: | $(KUBECTL) ## Start a port from the eda api service to the host at port specified by EXT_HTTPS_PORT
+start-ui-port-forward: | $(BUILD) $(KUBECTL) stop-ui-port-forward ## Start a port from the eda api service to the host at port specified by EXT_HTTPS_PORT
 	@{	\
-		echo "--> Exposing the UI to the host across the kind container boundary"																	;\
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
-		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"										;\
-		port_forward_cmd="nohup $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443 > /dev/null 2>&1 &" ;\
-		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi ;\
-		eval $$port_forward_cmd ;\
-		PORT_FWD_PID=$$!			;\
-		echo "--> Started background port forward with process id: $${PORT_FWD_PID}"	;\
+		echo "--> Exposing the UI to the host across the kind container boundary"																																;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')							;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')								;\
+		STDERR_LOG="$(BUILD)/eda-port-forward-$$(date +"%F-%H-%M-%S-%N").log"																																	;\
+		port_forward_cmd="nohup $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443 > /dev/null 2> $${STDERR_LOG} &"	;\
+		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi 																									;\
+		eval $$port_forward_cmd 																																												;\
+		PORT_FWD_PID=$$!																																														;\
+		sleep 10s ;\
+		if ! kill -0 $${PORT_FWD_PID} > /dev/null 2>&1 ; then																																																 \
+			echo ""																																																;\
+			echo "[ERROR] Could not start port forward process $${PORT_FWD_PID} died"																																	;\
+			cat $${STDERR_LOG} | $(INDENT_OUT_ERROR)																																									;\
+			echo "        Perhaps something is already bound on 0.0.0.0:$${CLUSTER_EXT_HTTPS_PORT} ?"																											;\
+			echo "        Port binds can be checked using one of the below commands:"																																						;\
+			echo "          ss -ltupnHO src 0.0.0.0:9443"																																						;\
+			echo "          netstat -ltupn src | grep 0.0.0.0:9443"																																				;\
+			exit 1																																																;\
+		fi																																																		;\
+		echo "--> Started background port forward with process id: $${PORT_FWD_PID}"																															;\
+		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																									;\
+	}
+
+.PHONY: stop-ui-port-forward
+stop-ui-port-forward: | $(KUBECTL) ## Stop a port forward launched by this playground only
+	@{	\
+		PROCESS=$$(ps -ef | grep '$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0' | grep -v grep || true)	;\
+		if [[ "$${PROCESS}" == "" ]]; then echo "--> INFO: no port forward found - nothing to stop" && exit 0 ; fi															;\
+		PID_OF_KUBECTL_FWD=$$(echo "$${PROCESS}" | awk '{ print $$2 }')																										;\
+		if [[ "$${PID_OF_KUBECTL_FWD}" == "1" ]]; then echo "--> INFO: Found port-forward at pid $${PID_OF_KUBECTL_FWD} - refusing to kill init pid!" && exit 1 ; fi		;\
+		kill -9 $${PID_OF_KUBECTL_FWD}																																		;\
+		echo "--> INFO: Stopped port forward running in process id $${PID_OF_KUBECTL_FWD}"																					;\
+		echo "          $${PROCESS}"																																		;\
 	}
 
 
