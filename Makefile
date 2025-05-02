@@ -651,6 +651,7 @@ ifeq ($(USE_ASSET_HOST),1)
 		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 endif
 

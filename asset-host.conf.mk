@@ -67,5 +67,6 @@ APP_CATALOG ?= http://$(ASSET_HOST)/git/eda/catalog.git
 GH_CATALOG_TOKEN ?= $(shell echo -n "$(ASSET_HOST_GIT_PASSWORD)" | base64)
 GH_CATALOG_USER ?= $(shell echo -n "$(ASSET_HOST_GIT_USERNAME)" | base64)
 YANG_REMOTE_URL ?= http://$(ASSET_HOST)/artifacts
+LLM_DB_REMOTE_URL ?= http://$(ASSET_HOST)/artifacts
 endif
 # Close ifeq ($(USE_ASSET_HOST),1)
