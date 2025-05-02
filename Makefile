@@ -642,6 +642,14 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiat
 		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
+	@{	\
+		export NO_LB="$(NO_LB)"																					;\
+		export ENABLE_NODE_PORTS="false"																		;\
+		if [[ ! -z "$${NO_LB}" ]] && [[ "$${NO_LB}" != "0" ]]; then												 \
+			export ENABLE_NODE_PORTS="true"																		;\
+		fi																										;\
+		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
+	}
 # For the non-self-host case, the user must use the configs/kpt-setters.yaml file for any options
 ifeq ($(USE_ASSET_HOST),1)
 	@{	\
