@@ -63,9 +63,9 @@ EDAADM_SRC := $(ASSET_HOST_ARTIFACTS_URL)/edaadm-$(EDAADM_VERSION)
 ## ----------------------------------------------------------------------------|
 APP_REGISTRY_SKIPTLSVERIFY ?= true
 APP_REGISTRY_MIRROR ?= $(ASSET_HOST_REGISTRY_URL)
-APP_CATALOG ?= http://$(ASSET_HOST)/git/eda/catalog.git
 GH_CATALOG_TOKEN ?= $(shell echo -n "$(ASSET_HOST_GIT_PASSWORD)" | base64)
 GH_CATALOG_USER ?= $(shell echo -n "$(ASSET_HOST_GIT_USERNAME)" | base64)
+APP_CATALOG ?= http://$(ASSET_HOST)/git/$(GH_CATALOG_USER)/catalog.git
 YANG_REMOTE_URL ?= http://$(ASSET_HOST)/artifacts
 LLM_DB_REMOTE_URL ?= http://$(ASSET_HOST)/artifacts
 endif
