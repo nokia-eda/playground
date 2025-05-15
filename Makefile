@@ -1196,7 +1196,7 @@ define NODE_CLI
 endef
 
 .PHONY: node-ssh
-node-ssh: ## Connect to a node, specify name using NODE=leaf1-1
+node-ssh: ## Connect to a node, specify name using NODE=leaf1
 	@{  \
 		if [[ -z "$(NODE)" ]]; then \
 			echo "[ERROR] Please specify the name of the node using NOODE=<name>";\
@@ -1209,15 +1209,15 @@ node-ssh: ## Connect to a node, specify name using NODE=leaf1-1
 
 .PHONY: leaf1-ssh
 leaf1-ssh: ## Connect to leaf1
-	$(call NODE_CLI,leaf1-1)
+	$(call NODE_CLI,leaf1)
 
 .PHONY: leaf2-ssh
 leaf2-ssh: ## Connect to leaf2
-	$(call NODE_CLI,leaf2-1)
+	$(call NODE_CLI,leaf2)
 
 .PHONY: spine1-ssh
 spine1-ssh: ## Connect to spine1
-	$(call NODE_CLI,spine1-1)
+	$(call NODE_CLI,spine1)
 
 ##@ Cleanup
 
