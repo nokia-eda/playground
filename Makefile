@@ -1192,7 +1192,7 @@ verify-host-config: ## Verify host has the required params for a kind based setu
 
 ##@ NODE CLI access
 define NODE_CLI
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'sudo sr_cli' -l
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -l -c 'sudo ip netns exec srbase-mgmt ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@localhost'
 endef
 
 .PHONY: node-ssh
@@ -1294,8 +1294,14 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
+.PHONY: patch-node-user
+patch-node-user: | $(KUBECTL) ## Patch the admin node user to use default SR Linux password
+	@{ \
+		$(KUBECTL) patch nodeuser admin -n eda --type=merge -p '{"spec":{"password":"NokiaSrl1!"}}'; \
+	}
+
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) start-ui-port-forward
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) patch-node-user start-ui-port-forward
 	@echo "--> INFO: EDA is launched"
 #	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
