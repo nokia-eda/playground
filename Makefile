@@ -820,12 +820,13 @@ EDACTL_BIN := /eda/tools/edactl
 
 # macos stock bash does not support associative arrays
 # Do not __improve__ with using declare -A
-# Syntax for this is "crd|cr" names
+# Syntax for this is "crd|cr|status.field" names
+# status.field_name is the value that will be == true for the appstore controller to indicate it is established.
 # The quotes are important
 # To wait on multiple resources in the same gvk, duplicate the line as is
 APPFLOW_RESOURCES_TYPES=
-APPFLOW_RESOURCES_TYPES += "catalogs.appstore.eda.nokia.com|$(APPS_CATALOG_NAME)"
-APPFLOW_RESOURCES_TYPES += "registries.appstore.eda.nokia.com|$(APPS_REGISTRY_NAME)"
+APPFLOW_RESOURCES_TYPES += "catalogs.appstore.eda.nokia.com|$(APPS_CATALOG_NAME)|.status.operational"
+APPFLOW_RESOURCES_TYPES += "registries.appstore.eda.nokia.com|$(APPS_REGISTRY_NAME)|.status.reachable"
 
 .PHONY: apps-is-appflow-ready
 apps-is-appflow-ready:
@@ -836,25 +837,37 @@ apps-is-appflow-ready:
 		for resources in $(APPFLOW_RESOURCES_TYPES)												;\
 		do																						 \
 			COUNT=0																				;\
+			COUNT_REACHABLE=0																	;\
 			MAX_WAIT=$(APP_INSTALL_TIMEOUT)														;\
 			RESOURCE_FOUND=0																	;\
 			RESOURCE_TYPE=$$(echo "$${resources}" | cut -f1 -d'|')								;\
 			RESOURCE_NAME=$$(echo "$${resources}" | cut -f2 -d'|')								;\
+			RESOURCE_CHECK=$$(echo "$${resources}" | cut -f3 -d'|')								;\
 			echo "--> APPS:FLOW: Waiting for $${RESOURCE_TYPE} - $${RESOURCE_NAME} - $$(date)"	;\
 			while [ $$COUNT -lt $$MAX_WAIT ]; do												 \
 				found=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD}		 \
 				-- bash -c "($(EDACTL_BIN) -o json get $${RESOURCE_TYPE} $${RESOURCE_NAME} | grep -q '(NotFound)') && echo 'no' || echo 'yes'" | tr -d '\r' ) ;\
 				if [[ "$${found}" == "yes" ]]; then												 \
 					echo "--> APPS:FLOW: $${RESOURCE_TYPE} - $${RESOURCE_NAME} is available -- $$(date)";\
-					RESOURCE_FOUND=1															;\
-					break																		;\
+					echo "--> APPS:FLOW: Waiting for $${RESOURCE_TYPE} - $${RESOURCE_NAME} $${RESOURCE_CHECK} to be true -- $$(date)";\
+					while [ $$COUNT_REACHABLE -lt $$MAX_WAIT ]; do								 \
+						status=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${ET_POD} \
+						-- bash -c "($(EDACTL_BIN) -o yaml get $${RESOURCE_TYPE} $${RESOURCE_NAME} | yq -M $${RESOURCE_CHECK})" | tr -d '\r') ;\
+						if [[ "$${status}" == "true" ]]; then 									 \
+							echo "--> APPS:FLOW: $${RESOURCE_TYPE} -- $${RESOURCE_NAME} - $${RESOURCE_CHECK}=$${status} -- $$(date)" ;\
+							RESOURCE_FOUND=1													;\
+							break 2																;\
+						fi																		;\
+						COUNT_REACHABLE=$$((COUNT_REACHABLE +1))								;\
+						sleep 2																	;\
+					done																		;\
 				fi																				;\
 				COUNT=$$((COUNT + 1))															;\
 				sleep 2 																		;\
 			done																				;\
 			if [[ $$RESOURCE_FOUND -ne 1 ]]; then												 \
 				echo																			;\
-				echo "--> APP:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE_TYPE}:$${RESOURCE_NAME} -- $$(date)";\
+				echo "--> APPS:FLOW: [ERROR] Could not find resource using $(EDACTL_BIN) $${RESOURCE_TYPE}:$${RESOURCE_NAME} -- $$(date)";\
 				echo 																			;\
 				exit 1																			;\
 			fi																					;\
