@@ -9,3 +9,9 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
   - role: control-plane
+    # allow longer port-forwarding connection
+    # see https://stackoverflow.com/a/48829363
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        streamingConnectionIdleTimeout: "96h0m0s"
