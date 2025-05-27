@@ -24,13 +24,17 @@ KIND_CLUSTER_NAME ?= eda-demo
 TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
 SIMTOPO ?= $(TOP_DIR)/topology/00-sim-config.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
-LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
+LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y-%m-%d")
 CFG := $(TOP_DIR)/configs
 
 ifdef MACOS
-NO_KIND := 1
-NO_LB := 1
+NO_KIND := yes
+NO_LB := yes
 $(info --> INFO: MACOS=$(MACOS) - enabling NO_KIND=$(NO_KIND) and NO_LB=$(NO_LB))
+endif
+
+ifeq ($(NO_KIND),yes)
+NO_HOST_PORT_MAPPINGS ?= yes
 endif
 
 ARCH_QUERY := $(shell uname -m)
@@ -58,7 +62,7 @@ endif
 
 OK := [  \e[0;32mOK\033[0m  ]
 ERROR := [ \e[0;31mFAIL\033[0m ]
-
+INFO := [ \e[0;33mINFO\033[0m ]
 # Top level options
 # -----------------------------------------------------------------------------|
 # units: Kb - default output of df
@@ -118,6 +122,7 @@ KIND_CONFIG_REAL_LOC := $(realpath $(KIND_CONFIG_FILE))
 ifeq ($(KIND_CONFIG_REAL_LOC),)
 $(error "[ERROR] KIND config file $(KIND_CONFIG_REAL_LOC) not found")
 endif
+KIND_LAUNCH_CONFIG ?= $(BUILD)/kind.yaml
 
 KPT_SETTERS_FILE ?= $(CFG)/kpt-setters.yaml
 KPT_SETTERS_REAL_LOC := $(realpath $(KPT_SETTERS_FILE))
@@ -125,6 +130,9 @@ KPT_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-setters.yaml
 ifeq ($(KPT_SETTERS_REAL_LOC),)
 $(error "[ERROR] KPT setters file '$(KPT_SETTERS_REAL_LOC)' not found")
 endif
+
+TRYEDA_SVC_FILE ?= $(CFG)/try-eda-nodeport-api-svc.yaml
+TRYEDA_SVC_FILE_REAL_LOC := $(realpath $(TRYEDA_SVC_FILE))
 
 APPS_INSTALL_CRS ?= $(CATALOG)/install-crs
 APPS_VENDOR ?= nokia
@@ -137,9 +145,9 @@ APP_INSTALL_BULK_CR ?= $(BUILD)/bulk-app-install-workflow.yaml
 APP_INSTALL_BULK_WF_NAME ?= eda-apps-bulk-install
 
 ## Print all of the pref files information
-$(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
-$(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
-$(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) as the KPT setters file)
+# $(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
+# $(info --> INFO: Using $(KIND_CONFIG_REAL_LOC) as the KIND cluster configuration file)
+# $(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) as the KPT setters file)
 
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
@@ -412,31 +420,38 @@ update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts u
 kind: cluster cluster-wait-for-node-ready ## Launch a single node KinD cluster (K8S inside Docker)
 
 .PHONY: cluster
-cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane exists)
+cluster: | $(BUILD) $(KIND) $(KUBECTL) $(YQ) ; $(info --> KIND: Ensuring control-plane exists)
 	@{	\
-		cp $(KIND_CONFIG_REAL_LOC) $(BUILD)/kind.yaml; \
-		if [ ! -z "$(KIND_API_SERVER_ADDRESS)" ]; then \
-			$(YQ) eval ".networking.apiServerAddress = \"$(KIND_API_SERVER_ADDRESS)\"" -i $(BUILD)/kind.yaml; \
-		fi; \
-		MATCHED=0																			;\
-		for cluster in $$($(KIND) get clusters); do 										 \
-			if [[ "$${cluster}" == "$(KIND_CLUSTER_NAME)" ]]; then							 \
-				MATCHED=1																	;\
-			fi																				;\
-		done																				;\
-		if [[ "$${MATCHED}" == "0" ]]; then													 \
-			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml 2>&1 | $(INDENT_OUT) ;\
-		else																				 \
-			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
-		fi																					;\
+		cp $(KIND_CONFIG_REAL_LOC) $(KIND_LAUNCH_CONFIG)															;\
+		if [ ! -z "$(KIND_API_SERVER_ADDRESS)" ]; then																 \
+			$(YQ) eval ".networking.apiServerAddress = \"$(KIND_API_SERVER_ADDRESS)\"" -i $(KIND_LAUNCH_CONFIG)		;\
+		fi																											;\
+		if [[ "$(NO_HOST_PORT_MAPPINGS)" == "yes" ]]; then															 \
+			echo "--> KIND: Host port maps removed"																	;\
+			$(YQ) eval "del(.nodes[0].extraPortMappings)" -i $(KIND_LAUNCH_CONFIG)									;\
+		else																										 \
+			echo "--> KIND: Host port map 0.0.0.0:$(EXT_HTTPS_PORT) added"											;\
+			$(YQ) eval ".nodes[0].extraPortMappings[0].hostPort = $(EXT_HTTPS_PORT)" -i $(KIND_LAUNCH_CONFIG)		;\
+		fi 																											;\
+		MATCHED=0																									;\
+		for cluster in $$($(KIND) get clusters); do 																 \
+			if [[ "$${cluster}" == "$(KIND_CLUSTER_NAME)" ]]; then													 \
+				MATCHED=1																							;\
+			fi																										;\
+		done																										;\
+		if [[ "$${MATCHED}" == "0" ]]; then																			 \
+			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(KIND_LAUNCH_CONFIG) 2>&1 | $(INDENT_OUT)	;\
+		else																										 \
+			echo "--> KIND: Cluster named $(KIND_CLUSTER_NAME) exists"												;\
+		fi																											;\
 	}
 
 .PHONY: cluster-wait-for-node-ready
 cluster-wait-for-node-ready: | $(BASE) ; $(info --> KIND: wait for k8s node to be ready) @ ## Wait for the k8s cp to declare the node to be ready
 	@{	\
-		START=$$(date +%s)																;\
-		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY) 2>&1 | $(INDENT_OUT) ;\
-		echo "--> KIND: Node ready check took $$(( $$(date +%s) - $$START ))s" ;\
+		START=$$(date +%s)																						;\
+		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY) 2>&1 | $(INDENT_OUT)	;\
+		echo "--> KIND: Node ready check took $$(( $$(date +%s) - $$START ))s"									;\
 	}
 
 ##@ Loadbalancer
@@ -445,7 +460,6 @@ cluster-wait-for-node-ready: | $(BASE) ; $(info --> KIND: wait for k8s node to b
 define is_ipv6
 $(shell echo $(1) | grep -q ":" && echo 1 || echo 0)
 endef
-
 
 # Iterating over subnets and assigning them to respective variables
 define process_subnet
@@ -456,7 +470,6 @@ else
 	KIND_SUBNET := $(shell echo $(1) | awk -F. '{{print $$1 "." $$2}}')
 endif
 endef
-
 
 .PHONY: metallb-operator
 metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the load balancer, metallb in the cluster)
@@ -1079,24 +1092,24 @@ topology-load:  ## Load a topology file TOPO=<file>
 		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$POD_NAME -- bash -c "/app/api-server-topo -n $(EDA_USER_NAMESPACE)" | $(INDENT_OUT);\
 	}
 
-##@ Utility Functions
+##@ Port forwarding targets
 
 PORT_FORWARD_TO_API_SVC ?= eda-api
 
-.PHONY: enable-ui-port-forward-service
-enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port forward systemd service
-	@{ \
-		MAKE_PATH=$$(which make); \
-		SVC_NAME="eda-ui.service"; \
-		CUR_USER=$$(id -un); \
-		sed "s|__make|$${MAKE_PATH}|g; s|__pg_path|$(TOP_DIR)|g; s|__user|$${CUR_USER}|g" $(CFG)/$${SVC_NAME} | sudo tee /etc/systemd/system/$${SVC_NAME} > /dev/null; \
-		sudo systemctl daemon-reload; \
-		sudo systemctl enable $${SVC_NAME}; \
-		sudo systemctl start $${SVC_NAME}; \
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
-		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"; \
-	}
+# .PHONY: enable-ui-port-forward-service
+# enable-ui-port-forward-service: | $(KUBECTL) ## Enable and start the UI port forward systemd service
+# 	@{ \
+# 		MAKE_PATH=$$(which make)			;\
+# 		SVC_NAME="eda-ui.service"			;\
+# 		CUR_USER=$$(id -un)					;\
+# 		sed "s|__make|$${MAKE_PATH}|g; s|__pg_path|$(TOP_DIR)|g; s|__user|$${CUR_USER}|g" $(CFG)/$${SVC_NAME} | sudo tee /etc/systemd/system/$${SVC_NAME} > /dev/null					;\
+# 		sudo systemctl daemon-reload 		;\
+# 		sudo systemctl enable $${SVC_NAME}	;\
+# 		sudo systemctl start $${SVC_NAME}	;\
+# 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+# 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
+# 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																			;\
+# 	}
 
 .PHONY: start-ui-port-forward
 start-ui-port-forward: | $(BUILD) $(KUBECTL) stop-ui-port-forward ## Start a port from the eda api service to the host at port specified by EXT_HTTPS_PORT
@@ -1136,6 +1149,7 @@ stop-ui-port-forward: | $(KUBECTL) ## Stop a port forward launched by this playg
 		echo "          $${PROCESS}"																																		;\
 	}
 
+##@ EDA Tools
 
 .PHONY: open-toolbox
 open-toolbox: ## Log into the toolbox pod
@@ -1230,6 +1244,7 @@ verify-host-config: ## Verify host has the required params for a kind based setu
 	@$(call check-sysctl-value,fs.inotify.max_user_instances,$(FD_NOTIFY_MAX_USER_INSTANCES))
 
 ##@ NODE CLI access
+
 define NODE_CLI
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-pod-name=$(1) -o=jsonpath='{.items[*].metadata.name}') -- bash -l -c 'sudo ip netns exec srbase-mgmt ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@localhost'
 endef
@@ -1280,18 +1295,36 @@ POD_LABEL_FD=eda.nokia.com/app=fluentd
 logs: ## Show me cluster wide logs
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c "lnav /var/log/eda/*"
 
-.PHONY: logs-collect
-logs-collect: | $(KUBECTL) ## Get the logs from the cluster LOGS_DEST=<custom location>
+.PHONY: collect-techsupport
+collect-techsupport: | $(KUBECTL) ## Collect a techsupport incase things go wrong
 	@{	\
-		export TO=$(LOGS_DEST)	;\
-		mkdir -p $${TO}			;\
-		set +e ;\
-		echo "--> This is collected from $(TOP_DIR)" >> $${TO}/top-dir ;\
-		echo "--> Cluster name is $(KIND_CLUSTER_NAME)" >> $${TO}/cluster-name ;\
-		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) cp $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_FD) --no-headers -o=jsonpath='{.items[*].metadata.name}'):/var/log/eda "$${TO}"/	;\
-		docker ps -a >> $${TO}/running-containers ;\
-		$(KIND) export logs $${TO} --name $(KIND_CLUSTER_NAME) ;\
-		echo "--> Logs are stored in $${TO}" ;\
+		export TO=$(LOGS_DEST)																																	;\
+		mkdir -p $${TO}																																			;\
+		export TS=techsupport-$$(date +"%Y-%m-%d-%H-%M-%S").tar.gz																								;\
+		export DEST=$${TO}/$${TS}																																;\
+		export TOOLBOX_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}')	;\
+		if [[ -z "$${TOOLBOX_POD}" ]]; then (echo -e "$(ERROR) Could not find the toolbox pod!" && exit 1;) fi 													;\
+		echo -e "$(INFO) Starting techsupport collection"																										;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -l -c "techsupport.sh"													;\
+		echo -e "$(OK) Collected techsupport" && echo -e "$(INFO) Transferring to host $${DEST}"																;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) cp $${TOOLBOX_POD}:/tmp/eda/techsupport.tar.gz $${DEST}													;\
+		echo -e "$(OK) Transferred to $${DEST}"																													;\
+	}
+
+.PHONY: collect-backup
+collect-backup: | $(KUBECTL) ## Collect a platform backup
+	@{	\
+		export TO=$(LOGS_DEST)																																	;\
+		mkdir -p $${TO}																																			;\
+		export BK=eda-platform-backup-$$(date +"%Y-%m-%d-%H-%M-%S").tar.gz																						;\
+		export DEST=$${TO}/$${BK}																																;\
+		export TOOLBOX_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}')	;\
+		if [[ -z "$${TOOLBOX_POD}" ]]; then (echo -e "$(ERROR) Could not find the toolbox pod!" && exit 1;) fi 													;\
+		echo -e "$(INFO) Starting backup"																														;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -l -c "edactl platform backup /tmp/$${BK}"								;\
+		echo -e "$(OK) Collected backup" && echo -e "$(INFO) Transferring to host $${DEST}"																		;\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) cp $${TOOLBOX_POD}:/tmp/$${BK} $${DEST}					 												;\
+		echo -e "$(OK) Transferred to $${DEST}"																													;\
 	}
 
 ##@ View config options
@@ -1333,16 +1366,43 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
-.PHONY: patch-node-user
-patch-node-user: | $(KUBECTL) ## Patch the admin node user to use default SR Linux password
-	@{ \
-		$(KUBECTL) patch nodeuser admin \
-		--namespace $(EDA_USER_NAMESPACE) \
-		--type=merge -p '{"spec":{"password":"NokiaSrl1!"}}'; \
+##@ Try Eda
+
+.PHONY: patch-try-eda-node-user
+patch-try-eda-node-user: | $(KUBECTL) ## Patch the admin node user to use default SR Linux password
+	@$(KUBECTL) patch nodeuser admin \
+	--namespace $(EDA_USER_NAMESPACE) \
+	--type=merge -p '{"spec":{"password":"NokiaSrl1!"}}' | $(INDENT_OUT)
+
+.PHONY: create-try-eda-nodeport-svc
+create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to expose the API/UI
+	@{	\
+		cp $(TRYEDA_SVC_FILE_REAL_LOC) $(BUILD)/try-eda-nodeport-api-svc.yaml 																											;\
+		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i $(BUILD)/try-eda-nodeport-api-svc.yaml	 																		;\
+		$(KUBECTL) apply -f $(BUILD)/try-eda-nodeport-api-svc.yaml 2>&1 | $(INDENT_OUT)																									;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
+		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																			;\
 	}
 
+TRY_EDA_STEPS=
+TRY_EDA_STEPS+=download-tools
+TRY_EDA_STEPS+=download-pkgs
+TRY_EDA_STEPS+=update-pkgs
+TRY_EDA_STEPS+=$(if $(NO_KIND),,kind)
+TRY_EDA_STEPS+=$(if $(NO_LB),,metallb)
+TRY_EDA_STEPS+=install-external-packages
+TRY_EDA_STEPS+=eda-configure-core
+TRY_EDA_STEPS+=eda-install-core
+TRY_EDA_STEPS+=eda-is-core-ready
+TRY_EDA_STEPS+=eda-install-apps
+TRY_EDA_STEPS+=eda-bootstrap
+TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
+TRY_EDA_STEPS+=patch-try-eda-node-user
+TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-eda-nodeport-svc)
+
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) configure-external-packages eda-configure-core eda-configure-playground install-external-packages eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) patch-node-user start-ui-port-forward
+try-eda: | $(TRY_EDA_STEPS)
 	@echo "--> INFO: EDA is launched"
 #	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 
@@ -1374,6 +1434,7 @@ KIND_CLUSTER_NAME | $(KIND_CLUSTER_NAME)
 CE_DEPLOYMENT_LIST | $(CE_DEPLOYMENT_LIST)
 EDA_CORE_VERSION | $(EDA_CORE_VERSION)
 EDA_APPS_VERSION | $(EDA_APPS_VERSION)
+TRY_EDA_TARGETS | $(TRY_EDA_STEPS)
 EOF
 endef
 

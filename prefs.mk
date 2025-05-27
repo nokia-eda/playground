@@ -36,6 +36,10 @@
 # Use a custom k8s cluster API server address
 # KIND_API_SERVER_ADDRESS := "10.1.2.3"
 
+# Disable binding ports from the host to kind container for EXT_HTTPS_PORT
+# A port forward will be launched instead
+# NO_HOST_PORT_MAPPINGS := yes
+
 # How do clients reach your cluster?
 #  EXT_DOMAIN_NAME can also be set to an ipv4/6 address if no domain record
 #  is present. In that case EXT_IPV4_ADDR = $(EXT_DOMAIN_NAME) or its ipv6

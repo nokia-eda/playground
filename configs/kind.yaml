@@ -9,6 +9,12 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
   - role: control-plane
+    # reserve 32767 node port to expose EDA UI/API over this port
+    # the hostPort is overwritten at runtime based on the selected EXT_HTTPS_PORT variable
+    extraPortMappings:
+      - containerPort: 32767
+        hostPort: 9443
+        listenAddress: "0.0.0.0"
     # allow longer port-forwarding connection
     # see https://stackoverflow.com/a/48829363
     kubeadmConfigPatches:

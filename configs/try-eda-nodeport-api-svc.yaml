@@ -1,0 +1,19 @@
+# expose eda api service as a node port
+# for try-eda and kind access via container port mappings
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    try-eda: "true"
+  name: try-eda
+  namespace: eda-system
+spec:
+  type: NodePort
+  ports:
+    - name: https
+      nodePort: 32767
+      port: 443
+      targetPort: 9443
+  selector:
+    eda.nokia.com/app: apiserver
