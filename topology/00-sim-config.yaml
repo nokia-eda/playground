@@ -15,4 +15,3 @@ data:
 kind: ConfigMap
 metadata:
   name: eda-topology-sim
-  namespace: eda # kpt-set: ${EDA_USER_NAMESPACE}

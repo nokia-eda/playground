@@ -18,12 +18,14 @@ $(info --> INFO: USE_ASSET_HOST=$(USE_ASSET_HOST) using ASSET_HOST=$(ASSET_HOST)
 endif
 
 ## Top level options
+## ----------------------------------------------------------------------------|
 BUILD ?= build
 KIND_CLUSTER_NAME ?= eda-demo
 TOPO ?= $(TOP_DIR)/topology/3-nodes-srl.yaml
 SIMTOPO ?= $(TOP_DIR)/topology/00-sim-config.yaml
 TOPO_EMPTY ?= $(TOP_DIR)/topology/00-delete-all-nodes.yaml
 LOGS_DEST ?= /tmp/eda-support/logs-$(shell date +"%Y%m%d%H%M%S")
+CFG := $(TOP_DIR)/configs
 
 ifdef MACOS
 NO_KIND := 1
@@ -58,16 +60,22 @@ OK := [  \e[0;32mOK\033[0m  ]
 ERROR := [ \e[0;31mFAIL\033[0m ]
 
 # Top level options
-
+# -----------------------------------------------------------------------------|
 # units: Kb - default output of df
 MIN_DISK_SPACE ?= 30000000
 FS_NOTIFY_MAX_USER_WATCHES ?= 1048576
 FD_NOTIFY_MAX_USER_INSTANCES ?= 512
 
+## EDA configuration options
+## ----------------------------------------------------------------------------|
 EDA_CORE_NAMESPACE ?= eda-system
-EDA_GOGS_NAMESPACE ?= eda-system
-EDA_TRUSTMGR_NAMESPACE ?= eda-system
+EDA_GOGS_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
+# EDA_TRUSTMGR_NAMESPACE == EDA_CORE_NAMESPACE till the below PRs are merged:
+#    cert-manager/trust-manager#60
+#    cert-manager/trust-manager#131
+EDA_TRUSTMGR_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
 EDA_USER_NAMESPACE ?= eda
+# Namespace to apply the app-install (bulk 25.4+ / single < 25.4.1)
 EDA_APPS_INSTALL_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
 ENGINECONFIG_CR_NAME ?= engine-config
 LB_POOL_NAME ?= kind
@@ -86,15 +94,12 @@ http_proxy ?= ""
 no_proxy ?= ""
 LLM_API_KEY ?= ""
 
-
 APPLY_SETTER_IMG ?= ghcr.io/srl-labs/kpt-apply-setters:0.1.1
-
-CORE_IMAGE_REGISTRY=ghcr.io/nokia-eda
 SRL_IMAGE_REGISTRY=ghcr.io/nokia
 SRL_24_10_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.10.1-492
 
-
-## Level 2 options
+## Level 2 options for tools and tool options
+## ----------------------------------------------------------------------------|
 TOOLS ?= $(BASE)/tools
 KPT_PKG ?= $(BASE)/eda-kpt
 CATALOG ?= $(BASE)/catalog
@@ -107,8 +112,6 @@ KPT_INVENTORY_ADOPT ?= 0
 ifeq ($(KPT_INVENTORY_ADOPT),1)
 KPT_LIVE_APPLY_ARGS += --inventory-policy=adopt
 endif
-
-CFG := $(TOP_DIR)/configs
 
 KIND_CONFIG_FILE ?= $(CFG)/kind.yaml
 KIND_CONFIG_REAL_LOC := $(realpath $(KIND_CONFIG_FILE))
@@ -140,7 +143,7 @@ $(info --> INFO: Using $(KPT_SETTERS_REAL_LOC) as the KPT setters file)
 
 KPT_EXT_PKGS := $(KPT_PKG)/eda-external-packages
 KPT_CORE := $(KPT_PKG)/eda-kpt-base
-KPT_PLAYGROUND := $(KPT_PKG)/eda-kpt-playground
+KPT_PG := $(KPT_PKG)/eda-kpt-playground
 
 CM_WH_YML := $(KPT_PKG)/eda-external-packages/webhook-tests/cert-manager-webhook-ready-check.yaml
 
@@ -148,6 +151,7 @@ GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range |
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
 ## Tool Versions:
+## ----------------------------------------------------------------------------|
 EDABUILDER_VERSION ?= v1.0.0
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
@@ -159,6 +163,7 @@ UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
+## ----------------------------------------------------------------------------|
 EDA_CORE_VERSION ?= 25.4.1
 EDA_APPS_VERSION ?= 25.4.1
 
@@ -182,6 +187,7 @@ IS_EDA_APPS_VERSION_24X ?= 0
 endif
 
 ## Tools:
+## ----------------------------------------------------------------------------|
 GH ?= $(TOOLS)/gh
 HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
 K9S ?= $(TOOLS)/k9s-$(K9S_VERSION)
@@ -191,7 +197,7 @@ KUBECTL ?= $(TOOLS)/kubectl-$(KUBECTL_VERSION)
 UV ?= $(TOOLS)/uv
 YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
 
-## Curl options:
+### Curl options:
 CURL := curl --silent --fail --show-error
 
 SED ?= sed
@@ -200,12 +206,12 @@ INDENT_OUT := $(SED) 's/^/    /'
 INDENT_OUT_ERROR := $(SED) 's/^/        /'
 
 ## Where to get things:
+## ----------------------------------------------------------------------------|
 
 ### Access tokens
-
-# Clone the repos to be used by the playground Makefile
+### Clone the repos to be used by the playground Makefile
 GH_RO_TOKEN ?=
-# Tokens to set in the kpt package for the AppStore Controller to pull the catalog and app images
+### Tokens to set in the kpt package for the AppStore Controller to pull the catalog and app images
 GH_PKG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
 GH_REG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
 
@@ -224,7 +230,8 @@ CATALOG_PKG_SRC ?= https://$(GH_RO_TOKEN)@$(GH_CAT_URL)
 K8S_HELM_PKG_SRC ?= https://$(GH_RO_TOKEN)@$(GH_K8s_HELM_URL)
 endif
 
-### Tools
+### Tool Locations
+### ---------------------------------------------------------------------------|
 KIND_SRC ?= https://kind.sigs.k8s.io/dl/$(KIND_VERSION)/kind-$(OS)-$(ARCH)
 KUBECTL_SRC ?= https://dl.k8s.io/release/$(KUBECTL_VERSION)/bin/$(OS)/$(ARCH)/kubectl
 HELM_SRC ?= https://get.helm.sh/helm-$(HELM_VERSION)-$(OS)-$(ARCH).tar.gz
@@ -234,8 +241,14 @@ K9S_SRC ?= https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_
 YQ_SRC ?= https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 EDABUILDER_SRC ?= nokia-eda/edabuilder
 
-## Create working directories
+### Pod Selectors
+### ---------------------------------------------------------------------------|
+POD_SELECTOR_GOGS ?= git
+POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
+POD_LABEL_ET=eda.nokia.com/app=eda-toolbox
 
+## Create working directories
+## ----------------------------------------------------------------------------|
 $(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
 	@mkdir -p $(BUILD)
 
@@ -332,10 +345,10 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
 #	$(KPT) pkg get $(EDA_KPT_PKG_SRC) $(KPT_PKG)
-	git clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | sed 's/^/    /'
+	git clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | $(INDENT_OUT)
 
 $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in $(CATALOG))
-	git clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | sed 's/^/    /'
+	git clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | $(INDENT_OUT)
 
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog 
@@ -393,7 +406,7 @@ download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm
 update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts updates
 	git -C $(K8S_HELM) pull
 
-## Cluster launch
+##@ Cluster launch
 
 .PHONY: kind
 kind: cluster cluster-wait-for-node-ready ## Launch a single node KinD cluster (K8S inside Docker)
@@ -412,7 +425,7 @@ cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane
 			fi																				;\
 		done																				;\
 		if [[ "$${MATCHED}" == "0" ]]; then													 \
-			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml 2>&1 | sed 's/^/    /' ;\
+			$(KIND) create cluster --name $(KIND_CLUSTER_NAME)	--config $(BUILD)/kind.yaml 2>&1 | $(INDENT_OUT) ;\
 		else																				 \
 			echo "--> KIND: cluster named $(KIND_CLUSTER_NAME) exists"						;\
 		fi																					;\
@@ -422,9 +435,12 @@ cluster: | $(BUILD) $(KIND) $(KUBECTL) ; $(info --> KIND: Ensuring control-plane
 cluster-wait-for-node-ready: | $(BASE) ; $(info --> KIND: wait for k8s node to be ready) @ ## Wait for the k8s cp to declare the node to be ready
 	@{	\
 		START=$$(date +%s)																;\
-		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY) 2>&1 | sed 's/^/    /' ;\
+		$(KUBECTL) wait --for=condition=Ready nodes --all --timeout=$(TIMEOUT_NODE_READY) 2>&1 | $(INDENT_OUT) ;\
 		echo "--> KIND: Node ready check took $$(( $$(date +%s) - $$START ))s" ;\
 	}
+
+##@ Loadbalancer
+# -----------------------------------------------------------------------------|
 
 define is_ipv6
 $(shell echo $(1) | grep -q ":" && echo 1 || echo 0)
@@ -445,11 +461,11 @@ endef
 .PHONY: metallb-operator
 metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the load balancer, metallb in the cluster)
 	@{	\
-		$(KUBECTL) apply -f $(CFG)/metallb-native.yaml | sed 's/^/    /';\
+		$(KUBECTL) apply -f $(CFG)/metallb-native.yaml | $(INDENT_OUT);\
 		$(KUBECTL) wait --namespace metallb-system \
 						--for=condition=ready pod \
 						--selector=app=metallb \
-						--timeout=120s | sed 's/^/    /';\
+						--timeout=120s | $(INDENT_OUT);\
 	}
 
 LB_CFG_SRC_ANNOUNCE ?= $(CFG)/metallb-config-L2Advertisement.yaml
@@ -461,19 +477,19 @@ metallb-configure-pools: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb IP p
 ifdef NO_KIND
 	@if [[ -z "$(METALLB_VIP)" ]]; then echo "[ERROR] METALLB_VIP is not specified" && exit 1; fi;
 	@echo "--> LB: NO_KIND=$(NO_KIND) specified - using $(METALLB_VIP)"
-	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(METALLB_VIP)]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | sed 's/^/    /'
+	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(METALLB_VIP)]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | $(INDENT_OUT)
 else
 	$(eval KIND_SUBNETS=$(shell docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' $(KIND_BRIDGE_NAME)))
 	$(eval KIND_SUBNET=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep -v ':' | head -n 1 | awk -F'.' '{print $$1 "." $$2}'))
 	$(eval KIND_SUBNET6=$(shell echo "$(KIND_SUBNETS)" | tr ' ' '\n' | grep ':' | head -n 1 | awk -F':' '{print $$1 ":" $$2 ":" $$3 ":" $$4}'))
 	@echo "--> LB: Detected IPv4 Subnet: $(KIND_SUBNET)"
 	@echo "--> LB: Detected IPv6 Subnet: $(KIND_SUBNET6)"
-	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | sed 's/^/    /'
+	@cat $(LB_CFG_SRC_POOL) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- LB_IP_POOLS="[$(KIND_SUBNET).255.0/24, $(KIND_SUBNET6):ffff:ffff:ffff:ffff/120]" LB_POOL_NAME=$(LB_POOL_NAME) | $(KUBECTL) apply -f - | $(INDENT_OUT)
 endif
 
 .PHONY: metallb-configure-speaker
 metallb-configure-speaker: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb L2 speaker config) @ ## Apply metallb L2 announcement speaker configuration
-	@cat $(LB_CFG_SRC_ANNOUNCE) | $(KUBECTL) apply -f - | sed 's/^/    /'
+	@cat $(LB_CFG_SRC_ANNOUNCE) | $(KUBECTL) apply -f - | $(INDENT_OUT)
 
 .PHONY: metallb-configure
 metallb-configure: | $(BASE) metallb-configure-pools metallb-configure-speaker ; $(info --> LB: Applying metallb configuration) @ ## Apply metallb controller + speaker configuration
@@ -481,11 +497,132 @@ metallb-configure: | $(BASE) metallb-configure-pools metallb-configure-speaker ;
 .PHONY: metallb
 metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-configure ## Load the metallb loadbalancer into the cluster
 
+##@ KPT Package configuration
+# -----------------------------------------------------------------------------|
+
+.PHONY: check-ext-access-vars
+check-ext-access-vars: ## Check if variables for external access are set
+ifeq ($(EXT_DOMAIN_NAME),)
+	$(error "EXT_DOMAIN_NAME variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(EXT_HTTPS_PORT),)
+	$(error "EXT_HTTPS_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(EXT_HTTP_PORT),)
+	$(error "EXT_HTTP_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
+	$(error "Either EXT_IPV4_ADDR or EXT_IPV6_ADDR variable must be set. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
+endif
+
+.PHONY: instantiate-kpt-setters-work-file
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiate kpt setters work file from a template and set the known values
+	@{	\
+		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then		 \
+			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE)													;\
+		fi																											;\
+		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE)											;\
+		export cluster_pod_cidr=$$($(GET_POD_CIDR))																	;\
+		export cluster_svc_cidr=$$($(GET_SVC_CIDR))																	;\
+		export HTTPS_PROXY=$(HTTPS_PROXY)																			;\
+		export HTTP_PROXY=$(HTTP_PROXY)																				;\
+		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica"	;\
+		export https_proxy=$(https_proxy)																			;\
+		export http_proxy=$(http_proxy)																				;\
+		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica"	;\
+		export RO_TOKEN_REG=$$(echo "$(GH_REG_TOKEN)" | base64 -d | cut -c 4- | base64)								;\
+		export RO_TOKEN_CATALOG=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)							;\
+		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE)											;\
+		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE)									;\
+		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_SETTERS_WORK_FILE)								;\
+		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
+		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
+		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)								;\
+		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)									;\
+		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE)								;\
+		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE)									;\
+		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE)						;\
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		$(YQ) eval ".data.EDA_CORE_NAMESPACE = \"$(EDA_CORE_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+		$(YQ) eval ".data.EDA_GOGS_NAMESPACE = \"$(EDA_GOGS_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+		$(YQ) eval ".data.EDA_TRUSTMGR_NAMESPACE = \"$(EDA_TRUSTMGR_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)		;\
+		$(YQ) eval '.data.EDA_TRUSTMGR_ISSUER_DNSNAMES = "- \"trust-manager.$(EDA_TRUSTMGR_NAMESPACE).svc\"" | .data.EDA_TRUSTMGR_ISSUER_DNSNAMES style="literal"' -i $(KPT_SETTERS_WORK_FILE) ;\
+		$(YQ) eval ".data.EDA_USER_NAMESPACE = \"$(EDA_USER_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+	}
+	@{	\
+		export NO_LB="$(NO_LB)"																					;\
+		export ENABLE_NODE_PORTS="false"																		;\
+		if [[ ! -z "$${NO_LB}" ]] && [[ "$${NO_LB}" != "0" ]]; then												 \
+			export ENABLE_NODE_PORTS="true"																		;\
+		fi																										;\
+		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
+	}
+# For the non-self-host case, the user must use the configs/kpt-setters.yaml file for any options
+ifeq ($(USE_ASSET_HOST),1)
+	@{	\
+		$(YQ) eval ".data.APP_REGISTRY_SKIPTLSVERIFY = \"$(APP_REGISTRY_SKIPTLSVERIFY)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.APP_REGISTRY_MIRROR = \"$(APP_REGISTRY_MIRROR)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
+	}
+endif
+
+.PHONY: configure-external-packages
+configure-external-packages: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work-file $(if $(filter arm64,$(ARCH)),kpt-set-ext-arm-images,) ## Configure external packages (cert/trust-manager, fluentd, csi, gogs)
+	@{	\
+		echo "--> KPT:EXT: Configuring external packages"																	;\
+		pushd $(KPT_EXT_PKGS) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
+		--truncate-output=false \
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | $(INDENT_OUT) ;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
+	}
+
+.PHONY: eda-configure-core
+eda-configure-core: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work-file check-ext-access-vars ## Configure the EDA core deployment before launching
+	@{	\
+		echo "--> KPT:CORE: Configuring the eda core package"															;\
+		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1)	;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
+		--truncate-output=false \
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | $(INDENT_OUT)														;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1)				;\
+	}
+
+.PHONY: eda-configure-playground
+eda-configure-playground: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work-file ## Configure the playground packages
+	@{	\
+		pushd $(KPT_PG) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PG) from $$(pwd)" && exit 1)		;\
+		echo "--> KPT:PG: Configuring the playground package"															;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
+		--truncate-output=false \
+		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | $(INDENT_OUT) 														;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PG) from $$(pwd)" && exit 1)					;\
+	}
+
+.PHONY: configure-universe
+configure-universe: | configure-external-packages eda-configure-core eda-configure-playground ; $(info --> KPT: Configuring all packages: external, core, playground) @ ## Run kpt setter for all packages
+
+##@ Cert manager
+
 .PHONY: cm-is-deployment-ready
 cm-is-deployment-ready: | $(BASE) $(KUBECTL) ; $(info --> CERT: Waiting for deployment to be ready) @ ## Is the deployment ready ?
 	@{	\
 		START=$$(date +%s);\
-		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /';\
+		$(KUBECTL) wait deployment cert-manager-webhook -n cert-manager --for condition=Available=True --timeout=120s 2>&1 | $(INDENT_OUT);\
 		echo "--> CERT: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" ;\
 	}
 
@@ -519,16 +656,15 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 trustmgr-is-deployment-ready: | $(BASE) $(KUBECTL); $(info --> TRUST: Waiting for deployment to be ready) @ ## Is the deployment up ?
 	@{	\
 		START=$$(date +%s)																											;\
-		$(KUBECTL) wait deployment trust-manager -n $(EDA_TRUSTMGR_NAMESPACE) --for condition=Available=True --timeout=120s 2>&1 | sed 's/^/    /'	;\
+		$(KUBECTL) wait deployment trust-manager -n $(EDA_TRUSTMGR_NAMESPACE) --for condition=Available=True --timeout=120s 2>&1 | $(INDENT_OUT)	;\
 		echo "--> TRUST: Deployment is ready - took: $$(( $$(date +%s) - $$START ))s" 												;\
 	}
-
-POD_SELECTOR_GOGS ?= git
-POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
 
 .PHONY: git-is-init-done
 git-is-init-done: | $(BASE) $(KUBECTL) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
 	@$(KUBECTL) -n $(EDA_GOGS_NAMESPACE) exec -it $$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
+
+##@ KPT Install/Uninstall Packages
 
 ## The @ suppressor is not here, its in the $(call ...) where the macro is called
 define INSTALL_KPT_PACKAGE
@@ -536,11 +672,11 @@ define INSTALL_KPT_PACKAGE
 		echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Applying kpt package"									;\
 		pushd $1 &>/dev/null || (echo "[ERROR]: Failed to switch cwd to $2" && exit 1)						;\
 		if [[ ! -f resourcegroup.yaml ]] || [[ $(KPT_LIVE_INIT_FORCE) -eq 1 ]]; then						 \
-			$(KPT) live init --force 2>&1 | sed 's/^/    /'													;\
+			$(KPT) live init --force 2>&1 | $(INDENT_OUT)													;\
 		else																								 \
 			echo -e "--> INSTALL: [\033[1;34m$2\033[0m] - Resource group found, don't re-init this package"	;\
 		fi																									;\
-		$(KPT) live apply $(KPT_LIVE_APPLY_ARGS) 2>&1 | sed 's/^/    /'										;\
+		$(KPT) live apply $(KPT_LIVE_APPLY_ARGS) 2>&1 | $(INDENT_OUT)										;\
 		popd &>/dev/null || (echo "[ERROR]: Failed to switch back from $2" && exit 1)						;\
 		echo -e "--> INSTALL: [\033[0;32m$2\033[0m] - Applied and reconciled package"						;\
 	}
@@ -548,7 +684,7 @@ endef
 
 .PHONY: load-image-pull-secret
 load-image-pull-secret: | $(BASE) $(KUBECTL) $(KPT_PKG)
-	@$(KUBECTL) -n $(EDA_CORE_NAMESPACE) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | sed 's/^/    /'
+	@$(KUBECTL) -n $(EDA_CORE_NAMESPACE) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | $(INDENT_OUT)
 
 .PHONY: install-eda-core-ns
 install-eda-core-ns: | $(BASE) $(KPT) 
@@ -604,105 +740,6 @@ INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-api
 
 .PHONY: install-external-packages
 install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install external components for EDA core (cert/trust-manager, fluentd, csi, gogs, CA's)
-
-
-.PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiate kpt setters work file from a template and set the known values
-	@{	\
-		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then \
-			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE);\
-		fi; \
-		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
-		export cluster_pod_cidr=$$($(GET_POD_CIDR))				;\
-		export cluster_svc_cidr=$$($(GET_SVC_CIDR))				;\
-		export HTTPS_PROXY=$(HTTPS_PROXY)						;\
-		export HTTP_PROXY=$(HTTP_PROXY)							;\
-		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
-		export https_proxy=$(https_proxy)						;\
-		export http_proxy=$(http_proxy)							;\
-		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica";\
-		export RO_TOKEN_REG=$$(echo "$(GH_REG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
-		export RO_TOKEN_CATALOG=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)	;\
-		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE);\
-		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.LLM_API_KEY = \"$(LLM_API_KEY)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_DOMAIN_NAME = \"$(EXT_DOMAIN_NAME)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_HTTP_PORT = \"$(EXT_HTTP_PORT)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.https_proxy = \"$${https_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.http_proxy = \"$${http_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.no_proxy = \"$${no_proxy}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE); \
-	}
-	@{	\
-		export NO_LB="$(NO_LB)"																					;\
-		export ENABLE_NODE_PORTS="false"																		;\
-		if [[ ! -z "$${NO_LB}" ]] && [[ "$${NO_LB}" != "0" ]]; then												 \
-			export ENABLE_NODE_PORTS="true"																		;\
-		fi																										;\
-		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
-	}
-# For the non-self-host case, the user must use the configs/kpt-setters.yaml file for any options
-ifeq ($(USE_ASSET_HOST),1)
-	@{	\
-		$(YQ) eval ".data.APP_REGISTRY_SKIPTLSVERIFY = \"$(APP_REGISTRY_SKIPTLSVERIFY)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.APP_REGISTRY_MIRROR = \"$(APP_REGISTRY_MIRROR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
-	}
-endif
-
-
-.PHONY: configure-external-packages
-configure-external-packages: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work-file $(if $(filter arm64,$(ARCH)),kpt-set-ext-arm-images,) ## Configure external packages (cert/trust-manager, fluentd, csi, gogs)
-	@{	\
-		echo "--> KPT:EXT: Configuring external packages"	;\
-		pushd $(KPT_EXT_PKGS) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
-		--truncate-output=false \
-		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
-		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_EXT_PKGS) from $$(pwd)" && exit 1);\
-	}
-
-.PHONY: check-ext-access-vars
-check-ext-access-vars: ## Check if variables for external access are set
-ifeq ($(EXT_DOMAIN_NAME),)
-	$(error "EXT_DOMAIN_NAME variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
-endif
-
-ifeq ($(EXT_HTTPS_PORT),)
-	$(error "EXT_HTTPS_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
-endif
-
-ifeq ($(EXT_HTTP_PORT),)
-	$(error "EXT_HTTP_PORT variable was not set or correctly auto-derived. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
-endif
-
-ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
-	$(error "Either EXT_IPV4_ADDR or EXT_IPV6_ADDR variable must be set. See https://docs.eda.dev/getting-started/installation-process/#configure-your-deployment for details")
-endif
-
-.PHONY: eda-configure-core
-eda-configure-core: | $(BUILD) $(CFG) instantiate-kpt-setters-work-file check-ext-access-vars ## Configure the EDA core deployment before launching
-	@{	\
-		echo "--> KPT:CORE: Configuring the core package"	;\
-		pushd $(KPT_CORE) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
-		--truncate-output=false \
-		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
-		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_CORE) from $$(pwd)" && exit 1);\
-	}
 
 .PHONY: eda-install-core
 eda-install-core: | $(BASE) $(KPT) ; $(info --> KPT: Launching EDA) @ ## Base install of EDA in a cluster
@@ -776,7 +813,6 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 .PHONY: eda-is-core-ready
 eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done apps-is-appflow-ready ## Flight checks if core is ready
 
-
 .PHONY: eda-uninstall-core
 eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core services) ## Destroy the core kpt deployment
 	@{	\
@@ -785,6 +821,9 @@ eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core service
 		echo "--> KPT: Core resources reconciled";\
 		popd							;\
 	}
+
+##@ APP Install
+# -----------------------------------------------------------------------------|
 
 # Apps that need to be installed in a specific order
 # The order of this list how they get installed
@@ -815,7 +854,6 @@ APPS_INSTALL_LIST_BUILTIN += topologies
 
 NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
 
-POD_LABEL_ET=eda.nokia.com/app=eda-toolbox
 EDACTL_BIN := /eda/tools/edactl
 
 # macos stock bash does not support associative arrays
@@ -990,20 +1028,9 @@ else
 		$(XARGS_CMD)  -P $(words $(APPS_INSTALL_LIST_BUILTIN)) -I {} bash -c '$(call INSTALL_APP,$(APPS_VENDOR),{})'
 endif
 
-.PHONY: eda-configure-playground
-eda-configure-playground: | instantiate-kpt-setters-work-file ## Configure the playground packages
-	@{	\
-		pushd $(KPT_PLAYGROUND) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)	;\
-		echo "--> KPT:PG: Configuring the playground package"		;\
-		$(KPT) fn eval --image $(APPLY_SETTER_IMG) \
-		--truncate-output=false \
-		--fn-config $(KPT_SETTERS_WORK_FILE) 2>&1 | sed 's/^/    /' ;\
-		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PLAYGROUND) from $$(pwd)" && exit 1)						;\
-	}
-
 .PHONY: eda-bootstrap
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
-	@$(call INSTALL_KPT_PACKAGE,$(KPT_PLAYGROUND),EDA PLAYGROUND)
+	@$(call INSTALL_KPT_PACKAGE,$(KPT_PG),EDA PLAYGROUND)
 
 ##@ Northbound extensions
 
@@ -1022,7 +1049,7 @@ eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBala
 			setter_args="$${setter_args} API_LB_SVC_NAME=$(API_LB_SVC_NAME)"									;\
 		fi																										;\
 		setter_args="$$setter_args EDA_CORE_NAMESPACE=$(EDA_CORE_NAMESPACE)"									;\
-		cat $(API_CFG_LB_SVC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- $${setter_args} | $(KUBECTL) apply -f - | sed 's/^/    /';\
+		cat $(API_CFG_LB_SVC) | $(KPT) fn eval - --image $(APPLY_SETTER_IMG) --truncate-output=false --output unwrap -- $${setter_args} | $(KUBECTL) apply -f - | $(INDENT_OUT);\
 	}
 
 ##@ Topology
@@ -1030,7 +1057,6 @@ eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBala
 .PHONY: template-topology
 template-topology:  ## Create topology config-map from the topology input
 	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
-
 
 .PHONY: topology-load
 topology-load:  ## Load a topology file TOPO=<file>
@@ -1050,7 +1076,7 @@ topology-load:  ## Load a topology file TOPO=<file>
 			echo "--> TOPO: Waiting for $$POD_NAME to be in Running state...";\
 			sleep 5											;\
 		done												;\
-		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$POD_NAME -- bash -c "/app/api-server-topo -n $(EDA_USER_NAMESPACE)" | sed 's/^/    /';\
+		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$POD_NAME -- bash -c "/app/api-server-topo -n $(EDA_USER_NAMESPACE)" | $(INDENT_OUT);\
 	}
 
 ##@ Utility Functions
@@ -1113,11 +1139,11 @@ stop-ui-port-forward: | $(KUBECTL) ## Stop a port forward launched by this playg
 
 .PHONY: open-toolbox
 open-toolbox: ## Log into the toolbox pod
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -l
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -l
 
 .PHONY: e9s
 e9s: ## Run e9s application
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
 ##@ Host setup
 
@@ -1129,8 +1155,8 @@ install-docker: ## Install docker-ce engine
 configure-sysctl-params:
 	@{	\
 		(sudo mkdir -p /etc/sysctl.d) 															&& \
-		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | sed 's/^/    /') && \
-		(sudo sysctl --system | sed 's/^/    /')												&& \
+		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | $(INDENT_OUT)) && \
+		(sudo sysctl --system | $(INDENT_OUT))												&& \
 		echo "--> INFO: Reload daemon and restart docker service"								&& \
 		(sudo systemctl daemon-reload)															&& \
 		(sudo systemctl restart docker) ;\
@@ -1290,7 +1316,7 @@ list-kpt-setters-external-packages: | $(KPT) ## Show the available kpt setter fo
 
 .PHONY: list-kpt-setters-playground
 list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the eda-playground package
-	@$(call show-kpt-setter-in-dir,$(KPT_PLAYGROUND))
+	@$(call show-kpt-setter-in-dir,$(KPT_PG))
 
 .PHONY: kpt-set-ext-arm-images
 kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the images
@@ -1310,11 +1336,13 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 .PHONY: patch-node-user
 patch-node-user: | $(KUBECTL) ## Patch the admin node user to use default SR Linux password
 	@{ \
-		$(KUBECTL) patch nodeuser admin -n eda --type=merge -p '{"spec":{"password":"NokiaSrl1!"}}'; \
+		$(KUBECTL) patch nodeuser admin \
+		--namespace $(EDA_USER_NAMESPACE) \
+		--type=merge -p '{"spec":{"password":"NokiaSrl1!"}}'; \
 	}
 
 .PHONY: try-eda
-try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) install-external-packages eda-configure-core eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) patch-node-user start-ui-port-forward
+try-eda: | download-tools download-pkgs update-pkgs $(if $(NO_KIND),,kind) $(if $(NO_LB),,metallb) configure-external-packages eda-configure-core eda-configure-playground install-external-packages eda-install-core eda-is-core-ready eda-install-apps eda-bootstrap $(if $(filter true,$(SIMULATE)),topology-load,) patch-node-user start-ui-port-forward
 	@echo "--> INFO: EDA is launched"
 #	@echo "--> INFO: The UI port forward can be started using 'make start-ui-port-forward'"
 

@@ -3,6 +3,12 @@
 # and the default values specified in the Makefile.
 # To enable an option simply uncomment a line and give it a value
 
+# Namespace settings for eda components
+# -----------------------------------------------------------------------------|
+#
+# EDA_CORE_NAMESPACE := eda-system
+# EDA_USER_NAMESPACE := eda
+
 # Version selector for eda packages
 # -----------------------------------------------------------------------------|
 # List core versions using        make ls-versions-core
