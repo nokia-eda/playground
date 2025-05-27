@@ -1067,10 +1067,6 @@ eda-create-api-lb-svc: | $(BASE) $(KPT) ; $(info --> Creating a new API LoadBala
 
 ##@ Topology
 
-.PHONY: template-topology
-template-topology:  ## Create topology config-map from the topology input
-	$(YQ) eval-all '{"apiVersion": "v1","kind": "ConfigMap","metadata": {"name": "$(TOPO_CONFIGMAP_NAME)"},"data": {"eda.json": (. | tojson)}} ' $(TOPO)
-
 .PHONY: topology-load
 topology-load:  ## Load a topology file TOPO=<file>
 	@{	\
