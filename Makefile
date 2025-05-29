@@ -160,7 +160,7 @@ GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g
 
 ## Tool Versions:
 ## ----------------------------------------------------------------------------|
-EDABUILDER_VERSION ?= v1.0.0
+EDABUILDER_VERSION ?= v1.1.0
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
 K9S_VERSION ?= v0.32.5
@@ -172,8 +172,8 @@ YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
 ## ----------------------------------------------------------------------------|
-EDA_CORE_VERSION ?= 25.4.1
-EDA_APPS_VERSION ?= 25.4.1
+EDA_CORE_VERSION ?= 25.4.2
+EDA_APPS_VERSION ?= 25.4.2
 
 ### Release specifc options:
 ### Bulk app install mode is available >= 25.x
