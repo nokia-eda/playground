@@ -1249,9 +1249,9 @@ endef
 node-ssh: ## Connect to a node, specify name using NODE=leaf1
 	@{  \
 		if [[ -z "$(NODE)" ]]; then \
-			echo "[ERROR] Please specify the name of the node using NOODE=<name>";\
+			echo "[ERROR] Please specify the name of the node using NODE=<name>";\
 			echo "        Available nodes are:" ;\
-			echo "$$($(KUBECTL) get pods -l cx-cluster-name=eda -o=jsonpath='{.items[*].metadata.labels.cx-pod-name}')" | sed 's/^/        /';\
+			echo "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l cx-cluster-name=eda -o=jsonpath='{.items[*].metadata.labels.cx-pod-name}')" | sed 's/^/        /';\
 			exit 1;\
 		fi;\
 	}
