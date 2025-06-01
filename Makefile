@@ -275,13 +275,27 @@ DOWNLOAD_TOOLS_LIST += $(YQ)
 ifneq ($(USE_ASSET_HOST),1)
 DOWNLOAD_TOOLS_LIST += $(GH)
 DOWNLOAD_TOOLS_LIST += $(UV)
+DOWNLOAD_TOOLS_LIST += $(K9S)
 endif
 
 .PHONY: download-tools
-download-tools: | $(BASE) $(DOWNLOAD_TOOLS_LIST) ## Download required tools
+download-tools: | $(BASE) $(DOWNLOAD_TOOLS_LIST) create-tool-aliases ## Download required tools
 
-.PHONY: download-k9s
-download-k9s: | $(BASE) $(K9S) ## Download k9s
+.PHONY: create-tool-aliases
+create-tool-aliases: | $(TOOLS) ## Create aliases for versioned tools
+	@echo "--> TOOLS: Creating aliases for versioned binaries"
+	@{ \
+		cd $(TOOLS) && \
+		for binary in *; do \
+			if [[ -f "$$binary" && -x "$$binary" && "$$binary" == *"-"* ]]; then \
+				tool_name=$$(echo "$$binary" | cut -d'-' -f1); \
+				echo "    Creating alias: $$tool_name -> $$binary"; \
+				ln -sf "$(TOOLS)/$$binary" "$$tool_name"; \
+			fi; \
+		done; \
+	}
+	@echo "--> TOOLS: To add the tools to your path, paste this in your shell: export PATH=\$$PATH:$(TOOLS)"
+
 
 .PHONY: download-edabuilder
 download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
