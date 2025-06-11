@@ -556,10 +556,10 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiat
 		export cluster_svc_cidr=$$($(GET_SVC_CIDR))																	;\
 		export HTTPS_PROXY=$(HTTPS_PROXY)																			;\
 		export HTTP_PROXY=$(HTTP_PROXY)																				;\
-		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica"	;\
+		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica,edabuilder-dev-registry"	;\
 		export https_proxy=$(https_proxy)																			;\
 		export http_proxy=$(http_proxy)																				;\
-		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica"	;\
+		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica,edabuilder-dev-registry"	;\
 		export RO_TOKEN_REG=$$(echo "$(GH_REG_TOKEN)" | base64 -d | cut -c 4- | base64)								;\
 		export RO_TOKEN_CATALOG=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)							;\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE)											;\
