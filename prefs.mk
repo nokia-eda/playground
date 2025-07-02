@@ -97,6 +97,14 @@
 # in a "cert-manager" namespace
 # NO_CERT_MANAGER_INSTALL := yes
 
+# do not install cert-manager CSI driver.
+# Set to "yes" when the host cluster already has a cert-manager CSI driver installed.
+# NO_CSI_DRIVER_INSTALL := yes
+
+# do not install EDA issuer API.
+# Set to "yes" when the installing EDA in a vcluster.
+# NO_EDA_ISSUER_API_INSTALL := yes
+
 # KPT init options
 # -----------------------------------------------------------------------------|
 

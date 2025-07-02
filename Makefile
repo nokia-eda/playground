@@ -741,6 +741,10 @@ endef
 load-image-pull-secret: | $(BASE) $(KUBECTL) $(KPT_PKG)
 	@$(KUBECTL) -n $(EDA_CORE_NAMESPACE) apply -f $(TOP_DIR)/eda-kpt/eda-kpt-base/secrets/gh-core-pkgs.yaml 2>&1 | $(INDENT_OUT)
 
+.PHONY: label-ns-privileged
+label-ns-privileged: | $(BASE) $(KUBECTL)
+	@$(KUBECTL) label namespace $(EDA_CORE_NAMESPACE) pod-security.kubernetes.io/enforce=privileged 2>&1 | $(INDENT_OUT)
+
 .PHONY: install-eda-core-ns
 install-eda-core-ns: | $(BASE) $(KPT) 
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_EXT_PKGS)/eda-core-ns,core-ns)
@@ -784,14 +788,14 @@ INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-fluentd
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CERT_MANAGER_INSTALL),,install-external-package-cert-manager)
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-deployment-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-webhook-ready
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-csi-driver
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CSI_DRIVER_INSTALL),,install-external-package-csi-driver)
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-trust-manager
 INSTALL_EXTERNAL_PACKAGE_LIST += trustmgr-is-deployment-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-git
 INSTALL_EXTERNAL_PACKAGE_LIST += git-is-init-done
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-root
 INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-node
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-api
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_EDA_ISSUER_API_INSTALL),,install-external-package-eda-issuer-api)
 
 .PHONY: install-external-packages
 install-external-packages: | $(BASE) configure-external-packages $(INSTALL_EXTERNAL_PACKAGE_LIST) ## Install external components for EDA core (cert/trust-manager, fluentd, csi, gogs, CA's)
