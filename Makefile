@@ -415,9 +415,10 @@ endef
 .PHONY: update-pkgs
 update-pkgs: | $(KPT_PKG) $(CATALOG) ## Fetch eda kpt and catalog updates
 	@echo "--> INFO: Updating $(KPT_PKG)"
-	@git -C $(KPT_PKG) fetch 2>&1 | $(INDENT_OUT)
+	@git -C $(KPT_PKG) fetch --prune --prune-tags 2>&1 | $(INDENT_OUT)
+	@git -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@echo "--> INFO: Updating $(CATALOG)"
-	@git -C $(CATALOG) fetch 2>&1 | $(INDENT_OUT)
+	@git -C $(CATALOG) fetch --prune --prune-tags 2>&1 | $(INDENT_OUT)
 	@git -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG))
 	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG))
