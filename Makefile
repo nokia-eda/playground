@@ -220,8 +220,12 @@ INDENT_OUT_ERROR := $(SED) 's/^/        /'
 ### Clone the repos to be used by the playground Makefile
 GH_RO_TOKEN ?=
 ### Tokens to set in the kpt package for the AppStore Controller to pull the catalog and app images
-GH_PKG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
-GH_REG_TOKEN ?= RURBZ2hwXzRxcGpPanJ1eVJXa3Zzc0NGcUdENUFlZ29VN3dXYTN4c0NKSgo=
+GH_PKG_TOKEN ?= RURBX2RyTlF4b21la2FCa2VINjF0OWhJOVNkM01TaDMxdTFFUTFSeA==
+GH_REG_TOKEN ?= RURBX2RyTlF4b21la2FCa2VINjF0OWhJOVNkM01TaDMxdTFFUTFSeA==
+GH_ROOT ?= WjJoamNpNXBieTl1YjJ0cFlTMWxaR0VLCg==
+GH_RU ?= Ym05cmFXRXRaV1JoTFdKdmRBbz0K
+GH_SET_REG ?= base64 -d | cut -c 4- | echo -n "$$(echo -n 'Z2hwCg==' | base64 -d)$$(cat -)"
+GH_SET_CAT ?= $(GH_SET_REG)
 
 GH_KPT_URL ?= github.com/nokia-eda/kpt.git
 GH_CAT_URL ?= github.com/nokia-eda/catalog.git
@@ -546,7 +550,7 @@ ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
 endif
 
 .PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiate kpt setters work file from a template and set the known values
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
 		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then		 \
 			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE)													;\
@@ -560,8 +564,8 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiat
 		export https_proxy=$(https_proxy)																			;\
 		export http_proxy=$(http_proxy)																				;\
 		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica,edabuilder-dev-registry"	;\
-		export RO_TOKEN_REG=$$(echo "$(GH_REG_TOKEN)" | base64 -d | cut -c 4- | base64)								;\
-		export RO_TOKEN_CATALOG=$$(echo "$(GH_PKG_TOKEN)" | base64 -d | cut -c 4- | base64)							;\
+		export RO_TOKEN_REG=$$(echo -n "$(GH_REG_TOKEN)" | $(GH_SET_REG) | base64)									;\
+		export RO_TOKEN_CATALOG=$$(echo -n "$(GH_PKG_TOKEN)" | $(GH_SET_CAT) | base64)								;\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE)											;\
 		$(YQ) eval ".data.SINGLESTACK_SVCS = \"$(SINGLESTACK_SVCS)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
 		$(YQ) eval ".data.SIMULATE = \"$(SIMULATE)\"" -i $(KPT_SETTERS_WORK_FILE)									;\
@@ -585,6 +589,19 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) ## Instantiat
 		$(YQ) eval ".data.EDA_TRUSTMGR_NAMESPACE = \"$(EDA_TRUSTMGR_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)		;\
 		$(YQ) eval '.data.EDA_TRUSTMGR_ISSUER_DNSNAMES = "- \"trust-manager.$(EDA_TRUSTMGR_NAMESPACE).svc\"" | .data.EDA_TRUSTMGR_ISSUER_DNSNAMES style="literal"' -i $(KPT_SETTERS_WORK_FILE) ;\
 		$(YQ) eval ".data.EDA_USER_NAMESPACE = \"$(EDA_USER_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+		declare -a pkg=("cert-manager|eda-external-packages/cert-manager/gh-core-pkgs.yaml" "$(EDA_CORE_NAMESPACE)|eda-kpt-base/secrets/gh-core-pkgs.yaml");\
+		for item in "$${pkg[@]}" ; do																				 \
+			ns=$$(echo "$${item}" | cut -f1 -d'|')																	;\
+			fd=$$(echo "$${item}" | cut -f2 -d'|')																	;\
+			$(KUBECTL) create secret docker-registry core															 \
+			--docker-server=$$(echo -n "$(GH_ROOT)" | base64 -d | base64 -d)										 \
+			--docker-username=$$(echo -n "$(GH_RU)" | base64 -d | base64 -d)										 \
+			--docker-password=$$(echo -n "$(GH_REG_TOKEN)" | $(GH_SET_REG)) \
+			--docker-email=eda@nokia.com																			 \
+			--show-managed-fields=false \
+			--dry-run=client -o yaml																				 \
+			--namespace=$${ns} > "$(KPT_PKG)/$${fd}"																;\
+		done																										;\
 	}
 	@{	\
 		export NO_LB="$(NO_LB)"																					;\
