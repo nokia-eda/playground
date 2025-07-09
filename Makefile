@@ -660,6 +660,17 @@ eda-configure-playground: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work
 .PHONY: configure-universe
 configure-universe: | configure-external-packages eda-configure-core eda-configure-playground ; $(info --> KPT: Configuring all packages: external, core, playground) @ ## Run kpt setter for all packages
 
+.PHONY: update-creds
+update-creds: | $(BASE) $(KUBECTL)
+	@{	\
+		echo "--> INFO: Refreshing"																				;\
+		$(MAKE) -C $(TOP_DIR) configure-universe 2>&1 > $(BUILD)/configure-creds.log							;\
+		echo "--> INFO: Applying"																				;\
+		$(KUBECTL) apply -f $(KPT_PKG)/eda-external-packages/cert-manager/gh-core-pkgs.yaml | $(INDENT_OUT)		;\
+		$(KUBECTL) apply -f $(KPT_PKG)/eda-kpt-base/secrets/gh-core-pkgs.yaml | $(INDENT_OUT)					;\
+		$(KUBECTL) apply -f $(KPT_PKG)/eda-kpt-base/appstore-gh | $(INDENT_OUT)									;\
+	}
+
 ##@ Cert manager
 
 .PHONY: cm-is-deployment-ready
