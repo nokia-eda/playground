@@ -158,6 +158,8 @@ CM_WH_YML := $(KPT_PKG)/eda-external-packages/webhook-tests/cert-manager-webhook
 GET_SVC_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 service-cluster-ip-range | sed 's/ //g' | sed -ne 's/\"--service-cluster-ip-range=\(.*\)\",/\1/p'
 GET_POD_CIDR=$(KUBECTL) cluster-info dump | grep -m 1 cluster-cidr | sed 's/ //g' | sed -ne 's/\"--cluster-cidr=\(.*\)\",/\1/p'
 
+LIST_SETTERS_SCRIPT := $(TOP_DIR)/scripts/list-setters.py
+
 ## Tool Versions:
 ## ----------------------------------------------------------------------------|
 EDABUILDER_VERSION ?= v1.2.0
@@ -1383,16 +1385,16 @@ define show-kpt-setter-in-dir
 endef
 
 .PHONY: list-kpt-setters-core
-list-kpt-setters-core: | $(KPT) ## Show the available kpt setter for the eda-core package
-	@$(call show-kpt-setter-in-dir,$(KPT_CORE))
+list-kpt-setters-core: | $(KPT) $(UV) ## Show the available kpt setter for the eda-core package
+	@$(UV) run $(LIST_SETTERS_SCRIPT) $(KPT_CORE)
 
 .PHONY: list-kpt-setters-external-packages
-list-kpt-setters-external-packages: | $(KPT) ## Show the available kpt setter for the external-packages
-	@$(call show-kpt-setter-in-dir,$(KPT_EXT_PKGS))
+list-kpt-setters-external-packages: | $(KPT) $(UV) ## Show the available kpt setter for the external-packages
+	@$(UV) run $(LIST_SETTERS_SCRIPT) $(KPT_EXT_PKGS)
 
 .PHONY: list-kpt-setters-playground
-list-kpt-setters-playground: | $(KPT) ## Show the available kpt setter for the eda-playground package
-	@$(call show-kpt-setter-in-dir,$(KPT_PG))
+list-kpt-setters-playground: | $(KPT) $(UV) ## Show the available kpt setter for the eda-playground package
+	@$(UV) run $(LIST_SETTERS_SCRIPT) $(KPT_PG)
 
 .PHONY: kpt-set-ext-arm-images
 kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the images
