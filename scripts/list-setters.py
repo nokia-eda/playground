@@ -25,14 +25,21 @@ def extract_setters_from_file(filepath):
     setters = []
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    for i, line in enumerate(lines):
-        match = re.search(r"# kpt-set: \${([\w.-]+)}", line)
+    for line in lines:
+        # https://regex101.com/r/D6vPEk/1
+        match = re.search(r"^.*?([^#\s]+)\s+#\s*kpt-set:\s*\${([\w.-]+)}", line)
         if match:
-            name = match.group(1)
-            # Find the value in the YAML preceding the kpt-set comment
-            # Assume the value is on the same line, before the comment, after ':'
-            value_match = re.search(r":\s*([^#\n]+)", line)
-            value = value_match.group(1).strip() if value_match else ""
+            name = match.group(2)
+            value = match.group(1).strip()
+            if value.endswith(":"):
+                # If the value ends with a colon, it's likely a key that was matched with a setter
+                # like
+                #
+                # args: # kpt-set: ${CM_ARGS}
+                #   - --v=2
+                #
+                # add a note to a user
+                value = "Non scalar value, see the file for details."
             setters.append((name, value, ""))
     return setters
 
@@ -68,12 +75,12 @@ def main():
             rows.append({"file": rel_file, "setters": file_rows})
     if args.markdown:
         for group in rows:
-            col_count = 3
-            print("| Name | Current Value | Description|")
-            print("|------|---------------|------------|")
+            col_count = 2
+            print("| Name | Current Value | ")
+            print("|------|---------------|")
             print(f"| **{group['file']}** " + "|" * (col_count))
             for name, value, desc in group["setters"]:
-                print(f"| `{name}` | {value} | {desc} |")
+                print(f"| `{name}` | {value} |")
             print()
     else:
         console = Console()
