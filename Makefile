@@ -378,9 +378,6 @@ $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present i
 $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in $(CATALOG))
 	git clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | $(INDENT_OUT)
 
-.PHONY: download-pkgs
-download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog 
-
 # $1 - tag to checkout
 # $2 - Location of the repo
 define checkout-repo-at-tag
@@ -394,7 +391,7 @@ define checkout-repo-at-tag
 	if [[ "$$(git -C $${REPO} tag -l $${tag})" == "" ]]; then							 \
 		echo ""																			;\
 		echo "[ERROR]: $${VERSION} does not exist in $${REPO}"							;\
-		echo "         Do you need to run make update-pkgs ?"							;\
+		echo "         Do you need to run make download-pkgs ?"							;\
 		exit 1																			;\
 	fi																					;\
 	TAG_REF=$$(git -C $${REPO} rev-parse $${tag})										;\
@@ -414,8 +411,8 @@ define checkout-repo-at-tag
 }
 endef
 
-.PHONY: update-pkgs
-update-pkgs: | $(KPT_PKG) $(CATALOG) ## Fetch eda kpt and catalog updates
+.PHONY: download-pkgs
+download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog repos and check them out at the requested version
 	@echo "--> INFO: Updating $(KPT_PKG)"
 	@git -C $(KPT_PKG) fetch --prune --prune-tags 2>&1 | $(INDENT_OUT)
 	@git -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
@@ -1433,7 +1430,6 @@ create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to ex
 TRY_EDA_STEPS=
 TRY_EDA_STEPS+=download-tools
 TRY_EDA_STEPS+=download-pkgs
-TRY_EDA_STEPS+=update-pkgs
 TRY_EDA_STEPS+=$(if $(NO_KIND),,kind)
 TRY_EDA_STEPS+=$(if $(NO_LB),,metallb)
 TRY_EDA_STEPS+=eda-configure-core
