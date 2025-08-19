@@ -183,7 +183,7 @@ EDA_APPS_VERSION ?= 25.4.3
 
 ### Define the default values based on the latest release and then set options
 ### based on selected releases
-
+EXT_RELAX_DOMAIN_NAME_ENFORCEMENT ?= false
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
 IS_EDA_CORE_VERSION_24X ?= 0
@@ -591,6 +591,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ##
 		$(YQ) eval ".data.EXT_HTTPS_PORT = \"$(EXT_HTTPS_PORT)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
 		$(YQ) eval ".data.EXT_IPV4_ADDR = \"$(EXT_IPV4_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
 		$(YQ) eval ".data.EXT_IPV6_ADDR = \"$(EXT_IPV6_ADDR)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.EXT_RELAX_DOMAIN_NAME_ENFORCEMENT = $(EXT_RELAX_DOMAIN_NAME_ENFORCEMENT)" -i $(KPT_SETTERS_WORK_FILE);\
 		$(YQ) eval ".data.HTTPS_PROXY = \"$${HTTPS_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)							;\
 		$(YQ) eval ".data.HTTP_PROXY = \"$${HTTP_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)								;\
 		$(YQ) eval ".data.NO_PROXY = \"$${NO_PROXY}\"" -i $(KPT_SETTERS_WORK_FILE)									;\
@@ -1457,6 +1458,8 @@ TRY_EDA_STEPS+=eda-bootstrap
 TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
 TRY_EDA_STEPS+=patch-try-eda-node-user
 TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-eda-nodeport-svc)
+
+try-eda: EXT_RELAX_DOMAIN_NAME_ENFORCEMENT=true
 
 .PHONY: try-eda
 try-eda: | $(TRY_EDA_STEPS)
