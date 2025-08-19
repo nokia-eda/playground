@@ -312,14 +312,15 @@ download-tools: | $(BASE) $(DOWNLOAD_TOOLS_LIST) create-tool-aliases ## Download
 create-tool-aliases: | $(TOOLS) ## Create aliases for versioned tools
 	@echo "--> TOOLS: Creating aliases for versioned binaries"
 	@{ \
-		cd $(TOOLS) && \
-		for binary in *; do \
-			if [[ -f "$$binary" && -x "$$binary" && "$$binary" == *"-"* ]]; then \
-				tool_name=$$(echo "$$binary" | cut -d'-' -f1); \
-				echo "    Creating alias: $$tool_name -> $$binary"; \
-				ln -sf "$(TOOLS)/$$binary" "$$tool_name"; \
-			fi; \
-		done; \
+		cd $(TOOLS) &&																	 \
+		for binary in $(DOWNLOAD_TOOLS_LIST); do										 \
+			binary_name=$$(basename $$binary)											;\
+			tool_name=$$(echo $$binary_name | cut -d'-' -f1)							;\
+			if [[ -f "$$binary" && -x "$$binary" && "$$binary_name" == *"-"* ]]; then	 \
+				echo "    Creating alias: $$tool_name -> $$binary"						;\
+				ln -sf "$$binary" "$$tool_name"											;\
+			fi																			;\
+		done																			;\
 	}
 	@echo "--> TOOLS: To add the tools to your path, paste this in your shell: export PATH=\$$PATH:$(TOOLS)"
 
