@@ -1,0 +1,8 @@
+apiVersion: appstore.eda.nokia.com/v1
+kind: AppInstaller
+metadata:
+  name: nokia-apps-bulk-install
+  namespace: default
+spec:
+  operation: install
+  apps: []
