@@ -1180,8 +1180,8 @@ install-docker: ## Install docker-ce engine
 configure-sysctl-params:
 	@{	\
 		(sudo mkdir -p /etc/sysctl.d) 															&& \
-		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | $(INDENT_OUT)) && \
-		(sudo sysctl --system | $(INDENT_OUT))												&& \
+		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | $(INDENT_OUT))	&& \
+		(sudo sysctl --system | $(INDENT_OUT))													&& \
 		echo "--> INFO: Reload daemon and restart docker service"								&& \
 		(sudo systemctl daemon-reload)															&& \
 		(sudo systemctl restart docker) ;\
