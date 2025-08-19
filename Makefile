@@ -179,22 +179,38 @@ EDA_APPS_VERSION ?= 25.4.3
 
 ### Release specifc options:
 ### Bulk app install mode is available >= 25.x
-### Toplogy loader configMap name is eda-topology >= 25.x else topo-config
-ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
-USE_BULK_APP_INSTALL ?= 0
-TOPO_CONFIGMAP_NAME ?= topo-config
-IS_EDA_CORE_VERSION_24X ?= 1
-else
+### Topology loader configMap name is eda-topology >= 25.x else topo-config
+
+### Define the default values based on the latest release and then set options
+### based on selected releases
+
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
 IS_EDA_CORE_VERSION_24X ?= 0
+IS_EDA_APPS_VERSION_24X ?= 0
+
+IS_EDA_CORE_VERSION_254X ?= 0
+IS_EDA_APPS_VERSION_254X ?= 0
+
+ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
+USE_BULK_APP_INSTALL := 0
+TOPO_CONFIGMAP_NAME := topo-config
+IS_EDA_CORE_VERSION_24X := 1
+
+else ifeq ($(findstring 25.4,$(EDA_CORE_VERSION)),25.4)
+IS_EDA_CORE_VERSION_254X := 1
+
 endif
 
+
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
-IS_EDA_APPS_VERSION_24X ?= 1
-else
-IS_EDA_APPS_VERSION_24X ?= 0
+IS_EDA_APPS_VERSION_24X := 1
+
+else ifeq ($(findstring 25.4,$(EDA_APPS_VERSION)),25.4)
+IS_EDA_APPS_VERSION_254X := 1
+
 endif
+
 
 ## Tools:
 ## ----------------------------------------------------------------------------|
@@ -1476,6 +1492,12 @@ CE_DEPLOYMENT_LIST | $(CE_DEPLOYMENT_LIST)
 EDA_CORE_VERSION | $(EDA_CORE_VERSION)
 EDA_APPS_VERSION | $(EDA_APPS_VERSION)
 TRY_EDA_TARGETS | $(TRY_EDA_STEPS)
+IS_EDA_CORE_VERSION_24X | $(IS_EDA_CORE_VERSION_24X)
+IS_EDA_APPS_VERSION_24X | $(IS_EDA_APPS_VERSION_24X)
+IS_EDA_CORE_VERSION_254X | $(IS_EDA_CORE_VERSION_254X)
+IS_EDA_APPS_VERSION_254X | $(IS_EDA_APPS_VERSION_254X)
+USE_BULK_APP_INSTALL | $(USE_BULK_APP_INSTALL)
+TOPO_CONFIGMAP_NAME | $(TOPO_CONFIGMAP_NAME)
 EOF
 endef
 
