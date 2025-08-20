@@ -1397,6 +1397,23 @@ create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to ex
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																			;\
 	}
 
+.PHONY: ls-ways-to-reach-api-server
+ls-ways-to-reach-api-server: | $(KUBECTL) ## Find what interfaces are on the system and generate possible URLs
+	@{	\
+		$(call is-command-present,ip)																																						;\
+		export CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		export CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
+		echo "--> INFO: The UI can be reached using:"																																		;\
+		if [[ $(EXT_RELAX_DOMAIN_NAME_ENFORCEMENT) == "true" ]]; then 																														 \
+			ip -4 -brief address show scope link | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
+			ip -4 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
+			ip -6 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
+			ip -4 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
+			ip -6 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
+		fi																																													;\
+		echo "          https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																										;\
+	}
+
 TRY_EDA_STEPS=
 TRY_EDA_STEPS+=download-tools
 TRY_EDA_STEPS+=download-pkgs
@@ -1411,6 +1428,7 @@ TRY_EDA_STEPS+=eda-bootstrap
 TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
 TRY_EDA_STEPS+=patch-try-eda-node-user
 TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-eda-nodeport-svc)
+TRY_EDA_STEPS+=ls-ways-to-reach-api-server
 
 try-eda: EXT_RELAX_DOMAIN_NAME_ENFORCEMENT=true
 
