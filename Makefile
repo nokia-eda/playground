@@ -167,7 +167,6 @@ LIST_SETTERS_SCRIPT := $(TOP_DIR)/scripts/list-setters.py
 
 ## Tool Versions:
 ## ----------------------------------------------------------------------------|
-EDABUILDER_VERSION ?= v1.2.0
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
 K9S_VERSION ?= v0.32.5
@@ -179,8 +178,10 @@ YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
 ## ----------------------------------------------------------------------------|
-EDA_CORE_VERSION ?= 25.4.3
-EDA_APPS_VERSION ?= 25.4.3
+EDA_CORE_VERSION ?= 25.8.1
+EDA_APPS_VERSION ?= 25.8.1
+EDABUILDER_VERSION ?= v$(EDA_CORE_VERSION)
+
 
 ### Release specifc options:
 ### Bulk app install mode is available >= 25.x
