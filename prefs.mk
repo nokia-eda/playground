@@ -3,6 +3,11 @@
 # and the default values specified in the Makefile.
 # To enable an option simply uncomment a line and give it a value
 
+# Cluster Name
+# -----------------------------------------------------------------------------|
+# The cluster name is the name of the k8s CR engineconfigs.core.eda.nokia.com
+# CLUSTER_MEMBER_NAME := eda-01
+
 # Namespace settings for eda components
 # -----------------------------------------------------------------------------|
 #

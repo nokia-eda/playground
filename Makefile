@@ -85,7 +85,7 @@ EDA_USER_NAMESPACE ?= eda
 #  - bulk with generic workflow 25.4+
 #  - single < 25.4.1
 EDA_APPS_INSTALL_NAMESPACE ?= $(EDA_CORE_NAMESPACE)
-ENGINECONFIG_CR_NAME ?= engine-config
+CLUSTER_MEMBER_NAME ?= engine-config
 LB_POOL_NAME ?= kind
 
 EXT_DOMAIN_NAME ?= $(shell hostname -f)
@@ -607,6 +607,7 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ##
 		$(YQ) eval ".data.SRL_24_10_1_GHCR = \"$(SRL_24_10_1_GHCR)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
 		$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$${RO_TOKEN_REG}\"" -i $(KPT_SETTERS_WORK_FILE)						;\
 		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$${RO_TOKEN_CATALOG}\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		$(YQ) eval ".data.CLUSTER_MEMBER_NAME = \"$(CLUSTER_MEMBER_NAME)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
 		$(YQ) eval ".data.EDA_CORE_NAMESPACE = \"$(EDA_CORE_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
 		$(YQ) eval ".data.EDA_GOGS_NAMESPACE = \"$(EDA_GOGS_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)				;\
 		$(YQ) eval ".data.EDA_TRUSTMGR_NAMESPACE = \"$(EDA_TRUSTMGR_NAMESPACE)\"" -i $(KPT_SETTERS_WORK_FILE)		;\
@@ -833,7 +834,7 @@ is-ce-first-commit-done: | $(BASE) $(KUBECTL); $(info --> CE: Blocking until eng
 	@{	\
 		counter=0																											;\
 		while true; do																										 \
-			if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig $(ENGINECONFIG_CR_NAME) -o=jsonpath='{.status.run-status}')" = "Started" ]]; then	 \
+			if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig $(CLUSTER_MEMBER_NAME) -o=jsonpath='{.status.run-status}')" = "Started" ]]; then	 \
 				echo "--> CE: Engine first commit complete" && break														;\
 			elif [[ $$counter -gt 600 ]]; then																				 \
 				$(MAKE) -C $(TOP_DIR) ls-pods ce-logs ce-status																;\
@@ -885,7 +886,7 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 	@$(call WAIT_FOR_DEP,eda-ce)
 	@{ \
 		CE_CHILDREN_DEPLOYMENTS_LIST="$(CE_DEPLOYMENT_LIST)"; \
-		if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig engine-config -o jsonpath='{.spec.simulate}')" == "true" ]]; then \
+		if [[ "$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfig $(CLUSTER_MEMBER_NAME) -o jsonpath='{.spec.simulate}')" == "true" ]]; then \
 			CE_CHILDREN_DEPLOYMENTS_LIST="$$CE_CHILDREN_DEPLOYMENTS_LIST eda-cx"; \
 		fi; \
 		echo "$$CE_CHILDREN_DEPLOYMENTS_LIST" | tr ' ' '\n' | \
@@ -1118,8 +1119,8 @@ PORT_FORWARD_TO_API_SVC ?= eda-api
 # 		sudo systemctl daemon-reload 		;\
 # 		sudo systemctl enable $${SVC_NAME}	;\
 # 		sudo systemctl start $${SVC_NAME}	;\
-# 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-# 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
+# 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')		;\
+# 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
 # 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																			;\
 # 	}
 
@@ -1127,8 +1128,8 @@ PORT_FORWARD_TO_API_SVC ?= eda-api
 start-ui-port-forward: | $(BUILD) $(KUBECTL) stop-ui-port-forward ## Start a port from the eda api service to the host at port specified by EXT_HTTPS_PORT
 	@{	\
 		echo "--> Exposing the UI to the host"																																									;\
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')							;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')								;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')					;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.httpsPort}')					;\
 		STDERR_LOG="$(BUILD)/eda-port-forward-$$(date +"%F-%H-%M-%S-%N").log"																																	;\
 		port_forward_cmd="nohup $(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) port-forward service/$(PORT_FORWARD_TO_API_SVC) --address 0.0.0.0 $${CLUSTER_EXT_HTTPS_PORT}:443 > /dev/null 2> $${STDERR_LOG} &"	;\
 		if [[ $${CLUSTER_EXT_HTTPS_PORT} -eq 443 ]]; then port_forward_cmd="sudo -E $${port_forward_cmd}" ; fi 																									;\
@@ -1389,29 +1390,29 @@ patch-try-eda-node-user: | $(KUBECTL) ## Patch the admin node user to use defaul
 .PHONY: create-try-eda-nodeport-svc
 create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to expose the API/UI
 	@{	\
-		cp $(TRYEDA_SVC_FILE_REAL_LOC) $(BUILD)/try-eda-nodeport-api-svc.yaml 																											;\
-		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i $(BUILD)/try-eda-nodeport-api-svc.yaml	 																		;\
-		$(KUBECTL) apply -f $(BUILD)/try-eda-nodeport-api-svc.yaml 2>&1 | $(INDENT_OUT)																									;\
-		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
-		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																			;\
+		cp $(TRYEDA_SVC_FILE_REAL_LOC) $(BUILD)/try-eda-nodeport-api-svc.yaml 																													;\
+		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i $(BUILD)/try-eda-nodeport-api-svc.yaml	 																				;\
+		$(KUBECTL) apply -f $(BUILD)/try-eda-nodeport-api-svc.yaml 2>&1 | $(INDENT_OUT)																											;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
+		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																					;\
 	}
 
 .PHONY: ls-ways-to-reach-api-server
 ls-ways-to-reach-api-server: | $(KUBECTL) ## Find what interfaces are on the system and generate possible URLs
 	@{	\
-		$(call is-command-present,ip)																																						;\
-		export CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.domainName}')	;\
-		export CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com engine-config -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
-		echo "--> INFO: The UI can be reached using:"																																		;\
-		if [[ $(EXT_RELAX_DOMAIN_NAME_ENFORCEMENT) == "true" ]]; then 																														 \
-			ip -4 -brief address show scope link | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
-			ip -4 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
-			ip -6 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
-			ip -4 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
-			ip -6 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'							;\
-		fi																																													;\
-		echo "          https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																										;\
+		$(call is-command-present,ip)																																									;\
+		export CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		export CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.httpsPort}')		;\
+		echo "--> INFO: The UI can be reached using:"																																					;\
+		if [[ $(EXT_RELAX_DOMAIN_NAME_ENFORCEMENT) == "true" ]]; then 																																	 \
+			ip -4 -brief address show scope link | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'										;\
+			ip -4 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'										;\
+			ip -6 -brief address show scope host | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'										;\
+			ip -4 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'										;\
+			ip -6 -brief address show scope global | sort | uniq | awk '{split($$3,a,"/"); printf "%9s https://%s:%s\n","",a[1],ENVIRON["CLUSTER_EXT_HTTPS_PORT"]}'										;\
+		fi																																																;\
+		echo "          https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																													;\
 	}
 
 TRY_EDA_STEPS=
