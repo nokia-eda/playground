@@ -808,17 +808,17 @@ install-external-package-eda-issuer-api: | $(BASE) $(KPT) load-image-pull-secret
 INSTALL_EXTERNAL_PACKAGE_LIST=
 INSTALL_EXTERNAL_PACKAGE_LIST += install-eda-core-ns
 INSTALL_EXTERNAL_PACKAGE_LIST += load-image-pull-secret
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-fluentd
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_FLUENTD_INSTALL),,install-external-package-fluentd)
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CERT_MANAGER_INSTALL),,install-external-package-cert-manager)
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-deployment-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-webhook-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CSI_DRIVER_INSTALL),,install-external-package-csi-driver)
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-trust-manager
-INSTALL_EXTERNAL_PACKAGE_LIST += trustmgr-is-deployment-ready
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-git
-INSTALL_EXTERNAL_PACKAGE_LIST += git-is-init-done
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-root
-INSTALL_EXTERNAL_PACKAGE_LIST += install-external-package-eda-issuer-node
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_TRUSTMGR_INSTALL),,install-external-package-trust-manager)
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_TRUSTMGR_INSTALL),,trustmgr-is-deployment-ready)
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_GOGS_INSTALL),,install-external-package-git)
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_GOGS_INSTALL),,git-is-init-done)
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_EDA_ISSUER_ROOT_INSTALL),,install-external-package-eda-issuer-root)
+INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_EDA_ISSUER_NODE_INSTALL),,install-external-package-eda-issuer-node)
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_EDA_ISSUER_API_INSTALL),,install-external-package-eda-issuer-api)
 
 .PHONY: install-external-packages

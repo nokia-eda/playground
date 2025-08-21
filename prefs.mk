@@ -98,13 +98,36 @@
 # External packages options
 # -----------------------------------------------------------------------------|
 
-# do not install cert-manager. Set to "yes" when you have your own cert-manager
-# in a "cert-manager" namespace
+# do not install fluentd + fluent-bit
+# Set to "yes" to use your own logging aggregators and collectors
+# NO_FLUENTD_INSTALL := yes
+
+# do not install cert-manager.
+# Set to "yes" when you have your own cert-manager in a "cert-manager" namespace
+# It will still verify the cert-manager deployment and webhook is ready
 # NO_CERT_MANAGER_INSTALL := yes
 
 # do not install cert-manager CSI driver.
 # Set to "yes" when the host cluster already has a cert-manager CSI driver installed.
 # NO_CSI_DRIVER_INSTALL := yes
+
+# do not install trust-manager.
+# Set to "yes" when you have your own trust-manager that is listening to secrets
+# in the "EDA_CORE_NAMESPACE" namespace.
+# NO_TRUSTMGR_INSTALL := yes
+
+# do not install the provided in-cluster Git servers.
+# Set to "yes" when you have your own set of Git servers.
+# Use the kpt setter "GIT_SERVERS : []" to specify a custom set of git servers
+# NO_GOGS_INSTALL := yes
+
+# do not install EDA root issuer
+# Set to "yes" when bringing your own.
+# NO_EDA_ISSUER_ROOT_INSTALL := yes
+
+# do not install EDA node issuer
+# Set to "yes" when bringing your own.
+# NO_EDA_ISSUER_NODE_INSTALL := yes
 
 # do not install EDA issuer API.
 # Set to "yes" when the installing EDA in a vcluster.
