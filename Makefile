@@ -876,7 +876,7 @@ define WAIT_FOR_DEP
 	}
 endef
 
-CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox
+CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-se eda-toolbox
 ifeq ($(IS_EDA_CORE_VERSION_24X),0)
 CE_DEPLOYMENT_LIST+=eda-cert-checker
 endif
