@@ -202,10 +202,16 @@ ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
 USE_BULK_APP_INSTALL := 0
 TOPO_CONFIGMAP_NAME := topo-config
 IS_EDA_CORE_VERSION_24X := 1
+IS_EDA_CORE_LESSTHAN_258X := 1
 
 else ifeq ($(findstring 25.4,$(EDA_CORE_VERSION)),25.4)
 IS_EDA_CORE_VERSION_254X := 1
+IS_EDA_CORE_LESSTHAN_258X := 1
 APP_INSTALL_BULK_TEMPLATE := $(APP_INSTALL_BULK_TEMPLATE_254X)
+
+else
+IS_EDA_CORE_LESSTHAN_258X := 0
+
 endif
 
 
@@ -877,9 +883,12 @@ define WAIT_FOR_DEP
 	}
 endef
 
-CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-se eda-toolbox
+CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox
 ifeq ($(IS_EDA_CORE_VERSION_24X),0)
 CE_DEPLOYMENT_LIST+=eda-cert-checker
+endif
+ifeq ($(IS_EDA_CORE_LESSTHAN_258X),0)
+CE_DEPLOYMENT_LIST+=eda-se
 endif
 
 .PHONY: eda-is-core-deployment-ready
@@ -1472,6 +1481,7 @@ IS_EDA_CORE_VERSION_24X | $(IS_EDA_CORE_VERSION_24X)
 IS_EDA_APPS_VERSION_24X | $(IS_EDA_APPS_VERSION_24X)
 IS_EDA_CORE_VERSION_254X | $(IS_EDA_CORE_VERSION_254X)
 IS_EDA_APPS_VERSION_254X | $(IS_EDA_APPS_VERSION_254X)
+IS_EDA_CORE_LESSTHAN_258X | $(IS_EDA_CORE_LESSTHAN_258X)
 USE_BULK_APP_INSTALL | $(USE_BULK_APP_INSTALL)
 TOPO_CONFIGMAP_NAME | $(TOPO_CONFIGMAP_NAME)
 APP_INSTALL_BULK_TEMPLATE | $(APP_INSTALL_BULK_TEMPLATE)
