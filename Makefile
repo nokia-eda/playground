@@ -443,10 +443,10 @@ endef
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog repos and check them out at the requested version
 	@echo "--> INFO: Updating $(KPT_PKG)"
-	@git -C $(KPT_PKG) fetch --prune --prune-tags 2>&1 | $(INDENT_OUT)
+	@git -C $(KPT_PKG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
 	@git -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@echo "--> INFO: Updating $(CATALOG)"
-	@git -C $(CATALOG) fetch --prune --prune-tags 2>&1 | $(INDENT_OUT)
+	@git -C $(CATALOG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
 	@git -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG))
 	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG))
