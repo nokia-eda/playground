@@ -1453,7 +1453,7 @@ try-eda: | $(TRY_EDA_STEPS)
 
 .PHONY: help
 help:  ## Show the help menu
-	@sed -ne 's/^\([^[:space:]]*\):.*##/\1\t|\t/p' $(MAKEFILE_LIST) | sort | column -t -s $$'\t' | pager
+	@sed -ne 's/^\([^[:space:]]*\):.*##/\1\t|\t/p' $(MAKEFILE_LIST) | sort | column -t -s $$'\t' | less
 
 .PHONY: ls-versions-core
 ls-versions-core: | $(KPT_PKG) ## List the core versions available in the kpt package
