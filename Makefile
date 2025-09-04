@@ -758,7 +758,23 @@ trustmgr-is-deployment-ready: | $(BASE) $(KUBECTL); $(info --> TRUST: Waiting fo
 	}
 
 .PHONY: git-is-init-done
-git-is-init-done: | $(BASE) $(KUBECTL) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
+git-is-init-done: | $(BASE) $(KUBECTL) $(YQ) ; $(info --> GOGS: Waiting for pod init to complete) @ ## Has the gogs pod done launching ? Halt till then
+	@$(KUBECTL) wait deployment eda-git -n $(EDA_GOGS_NAMESPACE) --for condition=Available=True --timeout=120s 2>&1 | $(INDENT_OUT)
+	@{	\
+		echo "--> GOGS: Waiting for deployment to be ready"																							;\
+		PODS=0																																		;\
+		while [[ $$PODS -ne 1 ]]; do																												 \
+			sleep 2s																																;\
+			PODS=$$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) -o yaml | $(YQ) '.items | length')		;\
+		done																																		;\
+		echo "--> GOGS: Waiting deployment to reach running state"																		;\
+		STATE="NOT READY"																															;\
+		while [[ "$${STATE}" != "Running" ]]; do																									 \
+			sleep 1s																																;\
+			STATE=$$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) -o=jsonpath='{.items[*].status.phase}')	;\
+			echo "--> GOGS: Pod state is $${STATE}"																									;\
+		done																																		;\
+	}
 	@$(KUBECTL) -n $(EDA_GOGS_NAMESPACE) exec -it $$($(KUBECTL) -n $(EDA_GOGS_NAMESPACE) get pods -l eda.nokia.com/app=$(POD_SELECTOR_GOGS) --no-headers -o=jsonpath='{.items[*].metadata.name}') -- bash -c 'until [[ -f /data/eda-git-init.done ]]; do echo "--> GOGS: waiting for init.done ... - $$(date)" && sleep 1; done; echo "--> GOGS: Reached init.done!"'
 
 ##@ KPT Install/Uninstall Packages
