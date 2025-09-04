@@ -64,6 +64,7 @@ endif
 OK := [  \e[0;32mOK\033[0m  ]
 ERROR := [ \e[0;31mFAIL\033[0m ]
 INFO := [ \e[0;33mINFO\033[0m ]
+WARN := [ \e[0;33mWARN\033[0m ]
 # Top level options
 # -----------------------------------------------------------------------------|
 # units: Kb - default output of df
@@ -192,12 +193,15 @@ EDABUILDER_VERSION ?= v$(EDA_CORE_VERSION)
 EXT_RELAX_DOMAIN_NAME_ENFORCEMENT ?= false
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
+EDA_PLATFORM_CMD ?= edactl platform
+
 IS_EDA_CORE_VERSION_24X ?= 0
 IS_EDA_APPS_VERSION_24X ?= 0
 
 IS_EDA_CORE_VERSION_254X ?= 0
 IS_EDA_APPS_VERSION_254X ?= 0
 
+#### Set core release specific options
 ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
 USE_BULK_APP_INSTALL := 0
 TOPO_CONFIGMAP_NAME := topo-config
@@ -214,7 +218,12 @@ IS_EDA_CORE_LESSTHAN_258X := 0
 
 endif
 
+ifeq ($(IS_EDA_CORE_LESSTHAN_258X),1)
+EDA_PLATFORM_CMD := edactl cluster
+endif
 
+
+#### Set apps release specific options
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
 IS_EDA_APPS_VERSION_24X := 1
 
@@ -222,6 +231,7 @@ else ifeq ($(findstring 25.4,$(EDA_APPS_VERSION)),25.4)
 IS_EDA_APPS_VERSION_254X := 1
 
 endif
+
 
 
 ## Tools:
@@ -242,6 +252,7 @@ SED ?= sed
 
 INDENT_OUT := $(SED) 's/^/    /'
 INDENT_OUT_ERROR := $(SED) 's/^/        /'
+INDENT_OUT_MORE := $(SED) 's/^/          /'
 
 ## Where to get things:
 ## ----------------------------------------------------------------------------|
@@ -906,15 +917,6 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 .PHONY: eda-is-core-ready
 eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done apps-is-appflow-ready ## Flight checks if core is ready
 
-.PHONY: eda-uninstall-core
-eda-uninstall-core: | $(BASE) $(KPT) ; $(info --> KPT: Removing EDA core services) ## Destroy the core kpt deployment
-	@{	\
-		pushd $(KPT_CORE)				;\
-		$(KPT) live destroy				;\
-		echo "--> KPT: Core resources reconciled";\
-		popd							;\
-	}
-
 ##@ APP Install
 # -----------------------------------------------------------------------------|
 
@@ -1071,6 +1073,15 @@ endif
 .PHONY: eda-bootstrap
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PG),EDA PLAYGROUND)
+
+.PHONY: eda-start-core
+eda-start-core:
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -c "$(EDA_PLATFORM_CMD) start"
+
+
+##@ Uninstall operations
+
+include $(MKLIBS)/destroy-kpt-packages.mk
 
 ##@ Northbound extensions
 
