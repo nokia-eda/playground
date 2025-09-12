@@ -132,6 +132,7 @@ KIND_LAUNCH_CONFIG ?= $(BUILD)/kind.yaml
 KPT_SETTERS_FILE ?= $(CFG)/kpt-setters.yaml
 KPT_SETTERS_REAL_LOC := $(realpath $(KPT_SETTERS_FILE))
 KPT_SETTERS_WORK_FILE := $(TOP_DIR)/$(BUILD)/kpt-setters.yaml
+KPT_SETTERS_TRY_EDA_FILE := $(TOP_DIR)/configs/try-eda-kpt-setters.yaml
 ifeq ($(KPT_SETTERS_REAL_LOC),)
 $(error "[ERROR] KPT setters file '$(KPT_SETTERS_REAL_LOC)' not found")
 endif
@@ -701,6 +702,16 @@ eda-configure-playground: | $(BASE) $(BUILD) $(KPT) instantiate-kpt-setters-work
 
 .PHONY: configure-universe
 configure-universe: | configure-external-packages eda-configure-core eda-configure-playground ; $(info --> KPT: Configuring all packages: external, core, playground) @ ## Run kpt setter for all packages
+
+.PHONY: configure-try-eda-params
+configure-try-eda-params: | $(BASE) $(BUILD) $(KPT) $(KPT_SETTERS_TRY_EDA_FILE) ## Configure parameters specific to try-eda
+	@{	\
+		echo "--> KPT:TRY-EDA: Configuring try-eda specific customizations"																;\
+		pushd $(KPT_PKG) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)								;\
+		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false --fn-config $(KPT_SETTERS_TRY_EDA_FILE) 2>&1 | $(INDENT_OUT)	;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)										;\
+	}
+
 
 .PHONY: update-creds
 update-creds: | $(BASE) $(KUBECTL)
@@ -1457,6 +1468,7 @@ TRY_EDA_STEPS+=download-tools
 TRY_EDA_STEPS+=download-pkgs
 TRY_EDA_STEPS+=$(if $(NO_KIND),,kind)
 TRY_EDA_STEPS+=$(if $(NO_LB),,metallb)
+TRY_EDA_STEPS+=configure-try-eda-params
 TRY_EDA_STEPS+=eda-configure-core
 TRY_EDA_STEPS+=install-external-packages
 TRY_EDA_STEPS+=eda-install-core
