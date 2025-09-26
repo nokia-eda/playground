@@ -180,9 +180,9 @@ YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
 ## ----------------------------------------------------------------------------|
-EDA_CORE_VERSION ?= 25.8.1
-EDA_APPS_VERSION ?= 25.8.1
-EDABUILDER_VERSION ?= v$(EDA_CORE_VERSION)
+EDA_CORE_VERSION ?= 25.8.2
+EDA_APPS_VERSION ?= 25.8.2
+EDABUILDER_VERSION ?= v25.8.2
 
 
 ### Release specifc options:
