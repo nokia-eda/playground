@@ -61,6 +61,8 @@ else
 	EXT_IPV6_ADDR ?= $(shell ip -6 route get 2001:4860:4860::8888 2>/dev/null | grep 'src' | sed 's/.*src \([^ ]*\).*/\1/' || echo "")
 endif
 
+XARGS_PARALLEL ?= 20
+
 OK := [  \e[0;32mOK\033[0m  ]
 ERROR := [ \e[0;31mFAIL\033[0m ]
 INFO := [ \e[0;33mINFO\033[0m ]
@@ -1152,6 +1154,34 @@ topology-load:  ## Load a topology file TOPO=<file>
 		done												;\
 		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$POD_NAME -- bash -c "/app/api-server-topo -n $(EDA_USER_NAMESPACE)" | $(INDENT_OUT);\
 	}
+
+.PHONY: set-npp-mode
+set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode)
+	@{ \
+		toponodes=$$($(KUBECTL) get toponode -A -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.namespace}{"\n"}{end}') ;\
+		if [ -z "$$toponodes" ]; then \
+			echo "No toponode resources found." ;\
+			exit 0 ;\
+		fi ;\
+		echo "$$toponodes" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} sh -c ' \
+			name=$$(echo {} | cut -d " " -f 1) ; \
+			namespace=$$(echo {} | cut -d " " -f 2) ; \
+			$(KUBECTL) patch toponode $$name -n $$namespace --type merge -p "{\"spec\":{\"npp\":{\"mode\":\"$(mode)\"}}}" ; \
+			if [ $$? -eq 0 ]; then \
+				echo "Successfully set NPP mode to $(mode) for $$name in $$namespace namespace" ; \
+			else \
+				echo "Failed to set NPP mode to $(mode) for $$name in $$namespace namespace" ; \
+			fi \
+		' ;\
+	}
+
+.PHONY: set-npp-mode-emulate
+set-npp-mode-emulate: mode=emulate
+set-npp-mode-emulate: set-npp-mode ## Set NPP mode to emulate for all toponodes
+
+.PHONY: set-npp-mode-normal
+set-npp-mode-normal: mode=normal
+set-npp-mode-normal: set-npp-mode ## Set NPP mode to normal for all toponodes
 
 ##@ Port forwarding targets
 
