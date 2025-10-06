@@ -19,8 +19,8 @@
 # List core versions using        make ls-versions-core
 # List catalog versions using     make ls-versions-apps
 #
-# EDA_CORE_VERSION := 25.8.1
-# EDA_APPS_VERSION := 25.8.1
+# EDA_CORE_VERSION := 25.8.2
+# EDA_APPS_VERSION := 25.8.2
 
 # KinD cluster options
 # -----------------------------------------------------------------------------|

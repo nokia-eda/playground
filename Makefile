@@ -427,6 +427,7 @@ define checkout-repo-at-tag
 {	\
 	VERSION=$(1)																		;\
 	REPO=$(2)																			;\
+	STASH=$(3)																			;\
 	echo "--> INFO: $${REPO} - selected version: $${VERSION}"							;\
 	git -C $${REPO} fetch 2>&1 | $(INDENT_OUT)											;\
 	tag="v$${VERSION}"																	;\
@@ -444,10 +445,15 @@ define checkout-repo-at-tag
 	fi																					;\
 	if [[ "$$(git -C $${REPO} status --porcelain --untracked-files=no)" != "" ]]		;\
 	then																				 \
-		echo ""																			;\
-		echo "[ERROR]: There are user customizations present in $${REPO}"				;\
-		echo "         Please reset or stash: 'git -C $${REPO} stash'"					;\
-		exit 1																			;\
+		if [[ $${STASH} -eq 1 ]]; then 													 \
+			echo "--> INFO: stashing user customizations"								;\
+			git -C $${REPO} stash | $(INDENT_OUT)										;\
+		else 																			 \
+			echo ""																		;\
+			echo "[ERROR]: There are user customizations present in $${REPO}"			;\
+			echo "         Please reset or stash: 'git -C $${REPO} stash'"				;\
+			exit 1																		;\
+		fi 																				;\
 	fi																					;\
 	git -C $${REPO} -c advice.detachedHead=false checkout $${tag} 2>&1 | $(INDENT_OUT)	;\
 	echo "--> INFO: $${REPO} - is now at $$(git -C $${REPO} tag --points-at HEAD)"		;\
@@ -462,8 +468,8 @@ download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog 
 	@echo "--> INFO: Updating $(CATALOG)"
 	@git -C $(CATALOG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
 	@git -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
-	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG))
-	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG))
+	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG),1)
+	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG),1)
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
 	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | $(INDENT_OUT)
@@ -1249,6 +1255,27 @@ open-toolbox: ## Log into the toolbox pod
 .PHONY: e9s
 e9s: ## Run e9s application
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
+
+.PHONY: cluster-inventory-operation
+cluster-inventory-operation: | $(KUBECTL) $(YQ)
+	@{	\
+		if [[ ! -d $(KPT_PKG) ]]; then										 \
+			echo "[ERROR] - $(KPT_PKG) does not exist"						;\
+			echo "          Do you need to run 'make download-pkgs' ?"		;\
+			exit 1 															;\
+		fi																	;\
+		$(TOP_DIR)/scripts/manage-inventory-groups.py						 \
+		--eda-kpt-location $(KPT_PKG) --kubectl $(KUBECTL) --yq $(YQ)		 \
+		--operation $(INVENTORY_OPERATION)									;\
+	}
+
+.PHONY: cluster-audit-inventory
+cluster-audit-inventory: INVENTORY_OPERATION=audit
+cluster-audit-inventory: cluster-inventory-operation ## Audit the kpt package inventories from the cluster
+
+.PHONY: cluster-restore-inventory
+cluster-restore-inventory: INVENTORY_OPERATION=restore
+cluster-restore-inventory: cluster-inventory-operation ## Restore the kpt package inventories from the cluster
 
 ##@ Host setup
 
