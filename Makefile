@@ -1495,8 +1495,7 @@ ls-ways-to-reach-api-server: | $(KUBECTL) ## Find what interfaces are on the sys
 
 .PHONY: label-try-eda-playground-crs
 label-try-eda-playground-crs: | $(KUBECTL) ## Add labels to the kpt playground resources for try-eda purposes
-	@echo "--> INFO: Adding eda.nokia.com/bootstrap: true label to nodeProfile and Artifact crs"
-	@$(KUBECTL) get artifacts.artifacts.eda.nokia.com -n $(EDA_CORE_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_CORE_NAMESPACE) label artifacts.artifacts.eda.nokia.com {} "eda.nokia.com/bootstrap"="true" | $(INDENT_OUT)
+	@echo "--> INFO: Adding eda.nokia.com/bootstrap: true label to nodeProfiles"
 	@$(KUBECTL) get nodeprofiles.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) label nodeprofiles.core.eda.nokia.com {} "eda.nokia.com/bootstrap"="true" | $(INDENT_OUT)
 
 TRY_EDA_STEPS=
