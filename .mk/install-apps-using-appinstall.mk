@@ -21,7 +21,7 @@ endef
 
 ## $1 is the name of the workflow cr i.e .metadata.name
 ## $2 is the workflow cr itself, i.e the yaml file to k apply
-## The @ supressor is not here, its in the $(call ...) where the macro is called
+## The @ suppressor is not here, its in the $(call ...) where the macro is called
 define RUN_APP_WF
 	{	\
 		START=$$(date +%s)																			;\

@@ -196,7 +196,7 @@ EDABUILDER_VERSION ?= v25.8.2
 EXT_RELAX_DOMAIN_NAME_ENFORCEMENT ?= false
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
-EDA_PLATFORM_CMD ?= edactl platform
+EDA_PLATFORM_CMD ?= platform
 
 IS_EDA_CORE_VERSION_24X ?= 0
 IS_EDA_APPS_VERSION_24X ?= 0
@@ -222,7 +222,7 @@ IS_EDA_CORE_LESSTHAN_258X := 0
 endif
 
 ifeq ($(IS_EDA_CORE_LESSTHAN_258X),1)
-EDA_PLATFORM_CMD := edactl cluster
+EDA_PLATFORM_CMD := cluster
 endif
 
 
@@ -256,6 +256,26 @@ SED ?= sed
 INDENT_OUT := $(SED) 's/^/    /'
 INDENT_OUT_ERROR := $(SED) 's/^/        /'
 INDENT_OUT_MORE := $(SED) 's/^/          /'
+
+EDACTL_BIN := /eda/tools/edactl
+
+### Execute shell command in toolbox pod
+### Usage: $(call TOOLBOX_CMD,<shell-command>)
+### Example: $(call TOOLBOX_CMD,ls -la /tmp)
+define TOOLBOX_CMD
+	TOOLBOX_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}'); \
+	if [[ -z "$$TOOLBOX_POD" ]]; then \
+		echo -e "$(ERROR) Could not find the toolbox pod!" && exit 1; \
+	fi; \
+	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -i $$TOOLBOX_POD -- bash -c "$(1)"
+endef
+
+### Execute edactl command in toolbox pod
+### Usage: $(call EDACTL_CMD,<edactl-command>)
+### Example: $(call EDACTL_CMD,platform status)
+define EDACTL_CMD
+	$(call TOOLBOX_CMD,$(EDACTL_BIN) $(1))
+endef
 
 ## Where to get things:
 ## ----------------------------------------------------------------------------|
@@ -984,8 +1004,6 @@ APPS_INSTALL_LIST_BUILTIN += topologies
 
 NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
 
-EDACTL_BIN := /eda/tools/edactl
-
 # macos stock bash does not support associative arrays
 # Do not __improve__ with using declare -A
 # Syntax for this is "crd|cr|status.field" names
@@ -1044,7 +1062,7 @@ apps-is-appflow-ready:
 
 ### Pre 25.4.x way to install apps
 
-## The @ supressor is not here, its in the $(call ...) where the macro is called
+## The @ suppressor is not here, its in the $(call ...) where the macro is called
 define INSTALL_APP
 	{	\
 		START=$$(date +%s)																	;\
@@ -1110,9 +1128,16 @@ eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootst
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PG),EDA PLAYGROUND)
 
 .PHONY: eda-start-core
-eda-start-core:
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -c "$(EDA_PLATFORM_CMD) start"
+eda-start-core: ## Start EDA platform using edactl in toolbox
+	@$(call EDACTL_CMD,$(EDA_PLATFORM_CMD) start)
 
+.PHONY: eda-platform-info
+eda-platform-info: ## Show EDA platform information
+	@$(call EDACTL_CMD,platform)
+
+.PHONY: edactl
+edactl: ## Execute arbitrary edactl command in toolbox (usage: make edactl CMD="platform")
+	@$(call EDACTL_CMD,$(CMD))
 
 ##@ Uninstall operations
 
@@ -1162,23 +1187,50 @@ topology-load:  ## Load a topology file TOPO=<file>
 	}
 
 .PHONY: set-npp-mode
-set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode)
+set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) using edactl patch (DRYRUN=yes for dry-run)
+	@echo "--> INFO: Setting NPP mode to $(mode) for all toponodes"
 	@{ \
-		toponodes=$$($(KUBECTL) get toponode -A -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.namespace}{"\n"}{end}') ;\
-		if [ -z "$$toponodes" ]; then \
-			echo "No toponode resources found." ;\
-			exit 0 ;\
-		fi ;\
-		echo "$$toponodes" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} sh -c ' \
-			name=$$(echo {} | cut -d " " -f 1) ; \
-			namespace=$$(echo {} | cut -d " " -f 2) ; \
-			$(KUBECTL) patch toponode $$name -n $$namespace --type merge -p "{\"spec\":{\"npp\":{\"mode\":\"$(mode)\"}}}" ; \
-			if [ $$? -eq 0 ]; then \
-				echo "Successfully set NPP mode to $(mode) for $$name in $$namespace namespace" ; \
-			else \
-				echo "Failed to set NPP mode to $(mode) for $$name in $$namespace namespace" ; \
-			fi \
-		' ;\
+		dry_run_flag=""																					;\
+		if [ "$(DRYRUN)" = "yes" ] || [ "$(DRYRUN)" = "true" ]; then 									 \
+			dry_run_flag="--dry-run"																	;\
+			dry_run_mark="[DRY RUN]"																	;\
+			echo "--> INFO: DRY RUN MODE ENABLED - Changes will be simulated without applying them"; 	 \
+		fi 																								;\
+		echo "--> INFO: Getting list of namespaces..."													;\
+		namespaces=$$($(call EDACTL_CMD,get namespace) | tail -n +2 | tr -d '\r' | grep -v '^$$')		;\
+		if [ -z "$$namespaces" ]; then 																	 \
+			echo "--> ERROR: No namespaces found" 														;\
+			exit 1 																						;\
+		fi 																								;\
+		echo "--> INFO: Found namespaces:" 																;\
+		echo "$$namespaces" | $(INDENT_OUT) 															;\
+		patched_namespaces="" 																			;\
+		patch_json='[{"op": "replace", "path": "/spec/npp/mode", "value": "$(mode)"}]'					;\
+		for ns in $$namespaces; do 																		 \
+			pod_file="/tmp/toponodes-$$ns.yaml" 														;\
+			echo "--> INFO: Fetching toponodes from $$ns namespace and saving to $$pod_file in the toolbox pod"	; \
+			$(call EDACTL_CMD,get -n $$ns toponode -o yaml > $$pod_file) | $(INDENT_OUT)				;\
+			if [ $$? -ne 0 ]; then 																		 \
+				echo "--> ERROR: Failed to fetch toponodes from namespace $$ns" 						;\
+				exit 1 																					;\
+			fi 																							;\
+			commit_msg="Set NPP mode to $(mode) in namespace $$ns" 										;\
+			echo "--> INFO: Patching all toponodes in $$ns namespace using file $$pod_file" 			;\
+			$(call EDACTL_CMD,patch -n $$ns -f $$pod_file -p '$$patch_json' --commit-message '$$commit_msg' $$dry_run_flag) | $(INDENT_OUT)	; \
+			if [ $$? -eq 0 ]; then 																		 \
+				echo "--> $$dry_run_mark OK: Successfully patched toponodes in namespace $$ns" 			;\
+				patched_namespaces="$$patched_namespaces $$ns" 											;\
+			else 																						 \
+				echo "--> ERROR: Failed to patch toponodes in namespace $$ns" 							;\
+				exit 1 																					;\
+			fi 																							;\
+			$(call TOOLBOX_CMD,rm -f $$pod_file) 														;\
+		done 																							;\
+		if [ -n "$$patched_namespaces" ]; then 															 \
+			echo "--> $$dry_run_mark OK: NPP mode set to $(mode) for toponodes in namespaces:$$patched_namespaces" 	;\
+		else 																							 \
+			echo "--> WARN: No toponodes were patched" 													;\
+		fi 																								;\
 	}
 
 .PHONY: set-npp-mode-emulate
@@ -1436,11 +1488,10 @@ collect-backup: | $(KUBECTL) ## Collect a platform backup
 		mkdir -p $${TO}																																			;\
 		export BK=eda-platform-backup-$$(date +"%Y-%m-%d-%H-%M-%S").tar.gz																						;\
 		export DEST=$${TO}/$${BK}																																;\
-		export TOOLBOX_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l eda.nokia.com/app=eda-toolbox -o=jsonpath='{.items[*].metadata.name}')	;\
-		if [[ -z "$${TOOLBOX_POD}" ]]; then (echo -e "$(ERROR) Could not find the toolbox pod!" && exit 1;) fi 													;\
 		echo -e "$(INFO) Starting backup"																														;\
-		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -l -c "edactl platform backup /tmp/$${BK}"								;\
+		$(call EDACTL_CMD,platform backup /tmp/$${BK})																											;\
 		echo -e "$(OK) Collected backup" && echo -e "$(INFO) Transferring to host $${DEST}"																		;\
+		TOOLBOX_POD=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}')						;\
 		$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) cp $${TOOLBOX_POD}:/tmp/$${BK} $${DEST}					 												;\
 		echo -e "$(OK) Transferred to $${DEST}"																													;\
 	}
