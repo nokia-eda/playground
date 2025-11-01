@@ -323,6 +323,11 @@ POD_SELECTOR_GOGS ?= git
 POD_LABEL_GOGS ?= eda.nokia.com/app=$(POD_SELECTOR_GOGS)
 POD_LABEL_ET=eda.nokia.com/app=eda-toolbox
 
+
+### Include Libraries
+### ---------------------------------------------------------------------------|
+include $(MKLIBS)/k8s-utils.mk
+
 ## Create working directories
 ## ----------------------------------------------------------------------------|
 $(BUILD): | $(BASE); $(info --> INFO: Creating a build dir: $(BUILD))
@@ -1300,12 +1305,17 @@ stop-ui-port-forward: | $(KUBECTL) ## Stop a port forward launched by this playg
 
 ##@ EDA Tools
 
+restart-toolbox: NS=$(EDA_CORE_NAMESPACE)
+restart-toolbox: DEP=eda-toolbox
+.PHONY: restart-toolbox
+restart-toolbox: | $(KUBECTL) restart-deployment ## Restart the toolbox pod
+
 .PHONY: open-toolbox
-open-toolbox: ## Log into the toolbox pod
+open-toolbox: | $(KUBECTL) ## Log into the toolbox pod
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -l
 
 .PHONY: e9s
-e9s: ## Run e9s application
+e9s: | $(KUBECTL) ## Run e9s application
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
 
 .PHONY: cluster-inventory-operation
@@ -1336,7 +1346,7 @@ install-docker: ## Install docker-ce engine
 	$(CURL) -L https://containerlab.dev/setup | bash -s "install-docker"
 
 .PHONY: configure-sysctl-params
-configure-sysctl-params:
+configure-sysctl-params: ## Configure host sysctl params
 	@{	\
 		(sudo mkdir -p /etc/sysctl.d) 															&& \
 		(sudo cp -v $(TOP_DIR)/configs/90-eda.conf /etc/sysctl.d/90-eda.conf | $(INDENT_OUT))	&& \
