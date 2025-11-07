@@ -67,7 +67,7 @@ uninstall-eda-bootstrap:
 
 .PHONY: eda-stop-core
 eda-stop-core: $(KUBECTL)
-	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" bash -c "$(EDA_PLATFORM_CMD) stop"
+	@$(call EDACTL_CMD,$(EDA_PLATFORM_CMD) stop)
 
 # These finalizers were removed in 25.8 but are present in older releases by the appstore controller
 NUKE_FINALIZERS_LIST=
