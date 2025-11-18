@@ -173,10 +173,10 @@ LIST_SETTERS_SCRIPT := $(TOP_DIR)/scripts/list-setters.py
 ## ----------------------------------------------------------------------------|
 GH_VERSION ?= 2.67.0
 HELM_VERSION ?= v3.17.0
-K9S_VERSION ?= v0.32.5
-KIND_VERSION ?= v0.29.0
+K9S_VERSION ?= v0.50.16
+KIND_VERSION ?= v0.30.0
 KPT_VERSION ?= v1.0.0-beta.57
-KUBECTL_VERSION ?= v1.33.1
+KUBECTL_VERSION ?= v1.34.1
 UV_VERSION ?= 0.6.2
 YQ_VERSION ?= v4.42.1
 
