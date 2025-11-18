@@ -183,9 +183,9 @@ YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
 ## ----------------------------------------------------------------------------|
-EDA_CORE_VERSION ?= 25.8.3
-EDA_APPS_VERSION ?= 25.8.3
-EDABUILDER_VERSION ?= v25.8.3
+EDA_CORE_VERSION ?= 25.12.1
+EDA_APPS_VERSION ?= 25.12.1
+EDABUILDER_VERSION ?= v25.12.1
 
 
 ### Release specifc options:
@@ -993,12 +993,16 @@ define WAIT_FOR_DEP
 	}
 endef
 
+# Name of the deployments - kubectl get deployments -n <core ns>
 CE_DEPLOYMENT_LIST=eda-api eda-appstore eda-asvr eda-bsvr eda-metrics-server eda-fe eda-keycloak eda-postgres eda-sa eda-sc eda-toolbox
 ifeq ($(IS_EDA_CORE_VERSION_24X),0)
 CE_DEPLOYMENT_LIST+=eda-cert-checker
 endif
 ifeq ($(IS_EDA_CORE_LESSTHAN_258X),0)
 CE_DEPLOYMENT_LIST+=eda-se
+endif
+ifeq ($(IS_EDA_CORE_LESSTHAN_2512X),0)
+CE_DEPLOYMENT_LIST+=eda-ai-engine
 endif
 
 .PHONY: eda-is-core-deployment-ready
