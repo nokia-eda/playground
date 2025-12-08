@@ -1,1 +1,8 @@
-{}
+apiVersion: topologies.eda.nokia.com/v1alpha1
+kind: NetworkTopology
+metadata:
+  name: delete-topology
+  generateName: delete-all-topologies-
+  namespace: eda
+spec:
+  operation: deleteAll
