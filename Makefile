@@ -218,14 +218,17 @@ USE_BULK_APP_INSTALL := 0
 TOPO_CONFIGMAP_NAME := topo-config
 IS_EDA_CORE_VERSION_24X := 1
 IS_EDA_CORE_LESSTHAN_258X := 1
+IS_EDA_CORE_LESSTHAN_2512X := 1
 
 else ifeq ($(findstring 25.4,$(EDA_CORE_VERSION)),25.4)
 IS_EDA_CORE_VERSION_254X := 1
 IS_EDA_CORE_LESSTHAN_258X := 1
+IS_EDA_CORE_LESSTHAN_2512X := 1
 APP_INSTALL_BULK_TEMPLATE := $(APP_INSTALL_BULK_TEMPLATE_254X)
 
 else ifeq ($(findstring 25.8,$(EDA_CORE_VERSION)),25.8)
 IS_EDA_CORE_VERSION_258X := 1
+IS_EDA_CORE_LESSTHAN_2512X := 1
 
 endif
 
@@ -286,7 +289,8 @@ INDENT_OUT := $(SED) 's/^/    /'
 INDENT_OUT_ERROR := $(SED) 's/^/        /'
 INDENT_OUT_MORE := $(SED) 's/^/          /'
 
-EDACTL_BIN := /eda/tools/edactl
+EDATOOLBOX_TOOLS := /eda/tools
+EDACTL_BIN := $(EDATOOLBOX_TOOLS)/edactl
 
 ### Execute shell command in toolbox pod
 ### Usage: $(call TOOLBOX_CMD,<shell-command>)
@@ -768,10 +772,11 @@ configure-universe: | configure-external-packages eda-configure-core eda-configu
 .PHONY: configure-try-eda-params
 configure-try-eda-params: | $(BASE) $(BUILD) $(KPT) $(KPT_SETTERS_TRY_EDA_FILE) ## Configure parameters specific to try-eda
 	@{	\
+		if [[ $(IS_EDA_CORE_VERSION_24X) -eq 1 ]]; then echo "--> INFO: no customizations to apply for $(EDA_CORE_VERSION)" && exit; fi	;\
 		echo "--> KPT:TRY-EDA: Configuring try-eda specific customizations"																;\
-		pushd $(KPT_PKG) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)								;\
+		pushd $(KPT_PKG) &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)						;\
 		$(KPT) fn eval --image $(APPLY_SETTER_IMG) --truncate-output=false --fn-config $(KPT_SETTERS_TRY_EDA_FILE) 2>&1 | $(INDENT_OUT)	;\
-		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)										;\
+		popd &> /dev/null || (echo "[ERROR] Could not change cwd to $(KPT_PKG) from $$(pwd)" && exit 1)									;\
 	}
 
 
