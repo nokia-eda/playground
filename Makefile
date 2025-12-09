@@ -720,16 +720,21 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ##
 		fi																										;\
 		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
 	}
+ifdef APP_CATALOG
+	@{	\
+		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE)									;\
+	}
+endif
 # For the non-self-host case, the user must use the configs/kpt-setters.yaml file for any options
 ifeq ($(USE_ASSET_HOST),1)
 	@{	\
-		$(YQ) eval ".data.APP_REGISTRY_SKIPTLSVERIFY = \"$(APP_REGISTRY_SKIPTLSVERIFY)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.APP_REGISTRY_MIRROR = \"$(APP_REGISTRY_MIRROR)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.APP_REGISTRY_SKIPTLSVERIFY = \"$(APP_REGISTRY_SKIPTLSVERIFY)\"" -i $(KPT_SETTERS_WORK_FILE)	;\
+		$(YQ) eval ".data.APP_REGISTRY_MIRROR = \"$(APP_REGISTRY_MIRROR)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		$(YQ) eval ".data.APP_CATALOG = \"$(APP_CATALOG)\"" -i $(KPT_SETTERS_WORK_FILE)									;\
+		$(YQ) eval ".data.GH_CATALOG_TOKEN = \"$(GH_CATALOG_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
+		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
+		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
 	}
 endif
 
