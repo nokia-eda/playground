@@ -4,6 +4,27 @@ metadata:
   generateName: try-eda-topology-
   name: try-eda-topology
 spec:
+  operation: replaceAll
+  nodeTemplates:
+  - name: default
+    labels:
+        eda.nokia.com/security-profile: managed
+    nodeProfile: srlinux-ghcr-25.10.1
+  - name: leaf
+    labels:
+        eda.nokia.com/role: leaf
+    platform: 7220 IXR-D3L
+  - name: spine
+    labels:
+        eda.nokia.com/role: spine
+    platform: 7220 IXR-D5
+  nodes:
+  - name: leaf1
+    template: leaf
+  - name: leaf2
+    template: leaf
+  - name: spine1
+    template: spine
   links:
   - endpoints:
     - local:
@@ -214,32 +235,6 @@ spec:
     labels:
       eda.nokia.com/role: edge
     name: leaf1-2-e1212
-  nodes:
-  - labels:
-      eda.nokia.com/role: leaf
-      eda.nokia.com/security-profile: managed
-    name: leaf1
-    nodeProfile: srlinux-ghcr-25.10.1
-    operatingSystem: srl
-    platform: 7220 IXR-D3L
-    version: 25.10.1
-  - labels:
-      eda.nokia.com/role: leaf
-      eda.nokia.com/security-profile: managed
-    name: leaf2
-    nodeProfile: srlinux-ghcr-25.10.1
-    operatingSystem: srl
-    platform: 7220 IXR-D3L
-    version: 25.10.1
-  - labels:
-      eda.nokia.com/role: spine
-      eda.nokia.com/security-profile: managed
-    name: spine1
-    nodeProfile: srlinux-ghcr-25.10.1
-    operatingSystem: srl
-    platform: 7220 IXR-D5
-    version: 25.10.1
-  operation: replaceAll
   simulation:
     simNodes:
     - name: testman-default
