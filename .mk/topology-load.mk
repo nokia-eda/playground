@@ -49,7 +49,7 @@ topology-is-workflow-completed: | $(BASE) $(KUBECTL) $(YQ) eda-is-toolbox-ready 
 		echo "--> TOPO: Waiting for $${TOPO_NAME} [workflow:$${workflow_id}] to be completed"																;\
 		while [[ $${IS_IT_DONE} != "COMPLETED"	]]; do 																										 \
 			CURRENT_STATE=$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -c "export TOPO_NAME=$${TOPO_NAME} && $(EDACTL_BIN) -n $(EDA_USER_NAMESPACE) query .namespace.workflows.topologies_eda_nokia_com.v1alpha1.networktopology -o yaml | $(EDATOOLBOX_TOOLS)/yq 'filter(.metadata.name == ( env(TOPO_NAME) )) | .[].workflowStatus.state'" | tr -d '\r')	;\
-			IS_IT_DONE=$${CURRENT_STATE^^}																													;\
+			IS_IT_DONE=$$(echo "$${CURRENT_STATE}" | tr '[:lower:]' '[:upper:]')																			;\
 			echo "--> TOPO: $${TOPO_NAME} [workflow:$${workflow_id}] is $${IS_IT_DONE}"																		;\
 			if [[ "$${IS_IT_DONE}" == "FAILED" ]] || [[ "$${IS_IT_DONE}" == "TERMINATED" ]]; then															 \
 				$(KUBECTL) -n $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -l -c "edactl -n $(EDA_USER_NAMESPACE) workflow get $${workflow_id}"	;\
