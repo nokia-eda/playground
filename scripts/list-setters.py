@@ -76,7 +76,7 @@ def main():
     if args.markdown:
         for group in rows:
             col_count = 2
-            print("| Name | Current Value | ")
+            print("| Name | Value | ")
             print("|------|---------------|")
             print(f"| **{group['file']}** " + "|" * (col_count))
             for name, value, desc in group["setters"]:
