@@ -33,3 +33,15 @@ restart-deployment: | $(KUBECTL) ## Restart a deployment NS=<namespace> DEP=<nam
 	@if [[ -z "$(DEP)" ]]; then (echo "[ERROR] Please specify the deployment using DEP=<deployment>" && exit 1) ; fi;
 	@echo "--> INFO: restarting deployment $(NS)/$(DEP)"
 	@$(call K8S_ROLLOUT_OP,$(NS),restart,deployment,$(DEP))
+
+.PHONY: scale-deployment
+scale-deployment: | $(KUBECTL) ## Scale DEP=<name> to NUM=<number> of replicas in namespace NS
+	@if [[ -z "$(NS)" ]]; then (echo "[ERROR] Please specify the namespace using NS=<namespace>" && exit 1) ; fi;
+	@if [[ -z "$(DEP)" ]]; then (echo "[ERROR] Please specify the deployment using DEP=<deployment>" && exit 1) ; fi;
+	@if [[ -z "$(NUM)" ]]; then (echo "[ERROR] Please specify the number of replicas using NUM=<number>" && exit 1) ; fi;
+	@echo "--> INFO: scaling deployment $(NS)/$(DEP) to replica count: $(NUM)"
+	@$(KUBECTL) --namespace $(NS) scale deployment $(DEP) --replicas $(NUM) | $(INDENT_OUT)
+
+scale-down-deployment: NUM=0
+.PHONY: scale-down-deployment
+scale-down-deployment: | scale-deployment ## Scale down a deployment DEP in namespace NS to zero replicas
