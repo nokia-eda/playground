@@ -1336,6 +1336,11 @@ stop-ui-port-forward: | $(KUBECTL) ## Stop a port forward launched by this playg
 
 ##@ EDA Tools
 
+.PHONY: scale-down-git-servers
+scale-down-git-servers: ## Scale down eda-git and eda-git-replica
+	@$(MAKE) --no-print-directory -C $(TOP_DIR) scale-down-deployment NS=$(EDA_CORE_NAMESPACE) DEP=eda-git
+	@$(MAKE) --no-print-directory -C $(TOP_DIR) scale-down-deployment NS=$(EDA_CORE_NAMESPACE) DEP=eda-git-replica
+
 restart-toolbox: NS=$(EDA_CORE_NAMESPACE)
 restart-toolbox: DEP=eda-toolbox
 .PHONY: restart-toolbox
