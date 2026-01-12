@@ -317,8 +317,8 @@ endef
 ### Clone the repos to be used by the playground Makefile
 GH_RO_TOKEN ?=
 ### Tokens to set in the kpt package for the AppStore Controller to pull the catalog and app images
-GH_PKG_TOKEN ?= RURBX2RyTlF4b21la2FCa2VINjF0OWhJOVNkM01TaDMxdTFFUTFSeA==
-GH_REG_TOKEN ?= RURBX2RyTlF4b21la2FCa2VINjF0OWhJOVNkM01TaDMxdTFFUTFSeA==
+GH_PKG_TOKEN ?= RURBX1owTHRPZVJBQnVMeUhxM1kzMHdJTHhIR2szNW1QbDB6c1h6Mg==
+GH_REG_TOKEN ?= RURBX1owTHRPZVJBQnVMeUhxM1kzMHdJTHhIR2szNW1QbDB6c1h6Mg==
 GH_ROOT ?= WjJoamNpNXBieTl1YjJ0cFlTMWxaR0VLCg==
 GH_RU ?= Ym05cmFXRXRaV1JoTFdKdmRBbz0K
 GH_SET_REG ?= base64 -d | cut -c 4- | echo -n "$$(echo -n 'Z2hwCg==' | base64 -d)$$(cat -)"
