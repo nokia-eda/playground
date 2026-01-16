@@ -1229,7 +1229,7 @@ set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) 
 		dry_run_flag=""																					;\
 		if [ "$(DRYRUN)" = "yes" ] || [ "$(DRYRUN)" = "true" ]; then 									 \
 			dry_run_flag="--dry-run"																	;\
-			dry_run_mark="[DRY RUN]"																	;\
+			dry_run_mark=" [DRY RUN]"																	;\
 			echo "--> INFO: DRY RUN MODE ENABLED - Changes will be simulated without applying them"; 	 \
 		fi 																								;\
 		echo "--> INFO: Getting list of namespaces..."													;\
@@ -1245,6 +1245,11 @@ set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) 
 		for ns in $$namespaces; do 																		 \
 			pod_file="/tmp/toponodes-$$ns.yaml" 														;\
 			echo "--> INFO: Fetching toponodes from $$ns namespace and saving to $$pod_file in the toolbox pod"	; \
+			found_nodes=$$($(call EDACTL_CMD,-n $$ns query '.namespace.resources.cr.core_eda_nokia_com.v1.toponode fields [ count(metadata.name) ]' -o yaml | yq .[0].[]));\
+			if [[ -z $$found_nodes ]]; then																 \
+				echo "--> INFO: namespace: $$ns does not have any toponodes"							;\
+				continue																				;\
+			fi																							;\
 			$(call EDACTL_CMD,get -n $$ns toponode -o yaml > $$pod_file) | $(INDENT_OUT)				;\
 			if [ $$? -ne 0 ]; then 																		 \
 				echo "--> ERROR: Failed to fetch toponodes from namespace $$ns" 						;\
@@ -1254,7 +1259,7 @@ set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) 
 			echo "--> INFO: Patching all toponodes in $$ns namespace using file $$pod_file" 			;\
 			$(call EDACTL_CMD,patch -n $$ns -f $$pod_file -p '$$patch_json' --commit-message '$$commit_msg' $$dry_run_flag) | $(INDENT_OUT)	; \
 			if [ $$? -eq 0 ]; then 																		 \
-				echo "--> $$dry_run_mark OK: Successfully patched toponodes in namespace $$ns" 			;\
+				echo "-->$$dry_run_mark OK: Successfully patched toponodes in namespace $$ns" 			;\
 				patched_namespaces="$$patched_namespaces $$ns" 											;\
 			else 																						 \
 				echo "--> ERROR: Failed to patch toponodes in namespace $$ns" 							;\
@@ -1263,7 +1268,7 @@ set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) 
 			$(call TOOLBOX_CMD,rm -f $$pod_file) 														;\
 		done 																							;\
 		if [ -n "$$patched_namespaces" ]; then 															 \
-			echo "--> $$dry_run_mark OK: NPP mode set to $(mode) for toponodes in namespaces:$$patched_namespaces" 	;\
+			echo "-->$$dry_run_mark OK: NPP mode set to $(mode) for toponodes in namespaces:$$patched_namespaces" 	;\
 		else 																							 \
 			echo "--> WARN: No toponodes were patched" 													;\
 		fi 																								;\
