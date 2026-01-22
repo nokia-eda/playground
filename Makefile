@@ -273,6 +273,7 @@ TOPO_EMPTY ?= $(TOPOLOGY_DIR)/00-delete-all-nodes.yaml
 
 ## Tools:
 ## ----------------------------------------------------------------------------|
+EDABUILDER ?= $(TOOLS)/edabuilder
 GH ?= $(TOOLS)/gh
 HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
 K9S ?= $(TOOLS)/k9s-$(K9S_VERSION)
@@ -414,8 +415,8 @@ create-tool-aliases: | $(TOOLS) ## Create aliases for versioned tools
 
 .PHONY: download-edabuilder
 download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
-	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)" --skip-existing -O $(TOOLS)/edabuilder
-	@chmod a+x $(TOOLS)/edabuilder
+	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)" --skip-existing -O $(EDABUILDER)
+	@chmod a+x $(EDABUILDER)
 
 define download-bin
     $(info --> INFO: Downloading $(2))
@@ -1367,6 +1368,11 @@ open-toolbox: | $(KUBECTL) ## Log into the toolbox pod
 .PHONY: e9s
 e9s: | $(KUBECTL) ## Run e9s application
 	$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) exec -it $$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get pods -l $(POD_LABEL_ET) -o=jsonpath='{.items[*].metadata.name}') -- env "TERM=xterm-256color" /eda/tools/e9s
+
+,PHONY: edabuilder-setup-imports
+edabuilder-setup-imports:
+	@if [[ ! -f $(EDABUILDER) ]]; then $(MAKE) --no-print-directory -C $(TOP_DIR) download-edabuilder; fi
+	@$(EDABUILDER) login registry --force $$(echo -n "$(GH_ROOT)" | base64 -d | base64 -d) -u $$(echo -n "$(GH_RU)" | base64 -d | base64 -d) -p $$(echo -n "$(GH_REG_TOKEN)" | $(GH_SET_REG))
 
 .PHONY: cluster-inventory-operation
 cluster-inventory-operation: | $(KUBECTL) $(YQ)
