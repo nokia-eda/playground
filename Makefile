@@ -1244,10 +1244,11 @@ set-npp-mode: | $(BASE) $(KUBECTL) ## Set NPP mode for all toponodes to $(mode) 
 		patch_json='[{"op": "replace", "path": "/spec/npp/mode", "value": "$(mode)"}]'					;\
 		for ns in $$namespaces; do 																		 \
 			pod_file="/tmp/toponodes-$$ns.yaml" 														;\
-			echo "--> INFO: Fetching toponodes from $$ns namespace and saving to $$pod_file in the toolbox pod"	; \
-			found_nodes=$$($(call EDACTL_CMD,-n $$ns query '.namespace.resources.cr.core_eda_nokia_com.v1.toponode fields [ count(metadata.name) ]' -o yaml | yq .[0].[]));\
-			if [[ -z $$found_nodes ]]; then																 \
-				echo "--> INFO: namespace: $$ns does not have any toponodes"							;\
+			echo "--> INFO: Fetching toponodes from $$ns namespace and saving to $$pod_file in the toolbox pod"	;\
+			are_there_toponodes=0																		;\
+			$(call EDACTL_CMD, get toponodes.core.eda.nokia.com -n $$ns) > /dev/null 2>&1 || are_there_toponodes=1	;\
+			if [[ $$are_there_toponodes == 1 ]]; then													 \
+				echo "--> SKIP: $$ns namespace does not have any toponodes"								;\
 				continue																				;\
 			fi																							;\
 			$(call EDACTL_CMD,get -n $$ns toponode -o yaml > $$pod_file) | $(INDENT_OUT)				;\
