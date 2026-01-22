@@ -188,7 +188,7 @@ EDA_APPS_VERSION ?= 25.12.1
 EDABUILDER_VERSION ?= v25.12.1
 
 
-### Release specifc options:
+### Release specific options:
 ### Bulk app install mode is available >= 25.x
 ### Topology loader configMap name is eda-topology >= 25.x else topo-config
 
@@ -198,6 +198,7 @@ EXT_RELAX_DOMAIN_NAME_ENFORCEMENT ?= false
 USE_BULK_APP_INSTALL ?= 1
 TOPO_CONFIGMAP_NAME ?= eda-topology
 EDA_PLATFORM_CMD ?= platform
+EDACTL_QUERY_OUTPUT_YAML ?= query -o yaml
 TOPOLOGY_LOAD_TARGET=topology-load-using-workflow-wait-to-be-ready topology-load-using-workflow topology-is-workflow-completed
 
 IS_EDA_CORE_VERSION_24X ?= 0
@@ -238,6 +239,7 @@ endif
 
 ifeq ($(IS_EDA_CORE_LESSTHAN_2512X),1)
 TOPOLOGY_LOAD_TARGET := topology-load-using-config-map
+EDACTL_QUERY_OUTPUT_YAML := query -f yaml
 endif
 
 
@@ -309,6 +311,12 @@ endef
 define EDACTL_CMD
 	$(call TOOLBOX_CMD,$(EDACTL_BIN) $(1))
 endef
+
+### Execute edactl query in the toolbox and output in yaml
+define EDACTL_QUERY_YAML
+	$(call TOOLBOX_CMD,$(EDACTL_BIN) $(EDACTL_QUERY_OUTPUT_YAML) $(1))
+endef
+
 
 ## Where to get things:
 ## ----------------------------------------------------------------------------|
