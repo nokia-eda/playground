@@ -46,9 +46,17 @@
 # NO_HOST_PORT_MAPPINGS := yes
 
 # How do clients reach your cluster?
-#  EXT_DOMAIN_NAME can also be set to an ipv4/6 address if no domain record
+#  EXT_DOMAIN_NAME has to be set to an ipv4/6 address if no domain record
 #  is present. In that case EXT_IPV4_ADDR = $(EXT_DOMAIN_NAME) or its ipv6
 #  counterpart.
+#
+# If your domain name is not reachable and you set e.g.:
+# # EXT_DOMAIN_NAME = "<Your domain name or ip address>"
+# # EXT_IPV4_ADDR = 1.2.3.4 
+# Or you set an unreachable domain name e.g.:
+# # EXT_DOMAIN_NAME = some.unreachable.domain.name
+# # EXT_IPV4_ADDR = 1.2.3.4 
+# you will be able to surf to 1.2.3.4, but you will get a Keycloak error.
 # -----------------------------------------------------------------------------|
 
 # EXT_DOMAIN_NAME = "<Your domain name or ip address>"
