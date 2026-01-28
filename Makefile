@@ -799,7 +799,7 @@ configure-try-eda-params: | $(BASE) $(BUILD) $(KPT) $(KPT_SETTERS_TRY_EDA_FILE) 
 
 
 .PHONY: update-creds
-update-creds: | $(BASE) $(KUBECTL)
+update-creds: | $(BASE) $(BUILD) $(KUBECTL)
 	@{	\
 		echo "--> INFO: Refreshing"																				;\
 		$(MAKE) -C $(TOP_DIR) configure-universe 2>&1 > $(BUILD)/configure-creds.log							;\
