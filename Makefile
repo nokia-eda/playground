@@ -1614,11 +1614,17 @@ kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the imag
 
 ##@ Try Eda
 
-.PHONY: patch-try-eda-node-user
-patch-try-eda-node-user: | $(KUBECTL) ## Patch the admin node user to use default SR Linux password
-	@$(KUBECTL) patch nodeuser admin \
-	--namespace $(EDA_USER_NAMESPACE) \
-	--type=merge -p '{"spec":{"password":"NokiaSrl1!"}}' | $(INDENT_OUT)
+.PHONY: patch-try-eda-allocations
+patch-try-eda-allocations: | $(KUBECTL) ## Patch all allocations in try eda to publish the allocated values to EDB
+	@echo "--> INFO: Setting publish allocations to true for all allocations in $(EDA_USER_NAMESPACE) namespace"
+	@$(KUBECTL) get indexallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch indexallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+
+	@$(KUBECTL) get ipallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+
+	@$(KUBECTL) get ipinsubnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipinsubnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+
+	@$(KUBECTL) get subnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch subnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+
 
 .PHONY: create-try-eda-nodeport-svc
 create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to expose the API/UI
@@ -1662,7 +1668,7 @@ TRY_EDA_STEPS+=eda-is-core-ready
 TRY_EDA_STEPS+=eda-install-apps
 TRY_EDA_STEPS+=eda-bootstrap
 TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
-TRY_EDA_STEPS+=patch-try-eda-node-user
+TRY_EDA_STEPS+=patch-try-eda-allocations
 TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-eda-nodeport-svc)
 TRY_EDA_STEPS+=ls-ways-to-reach-api-server
 
