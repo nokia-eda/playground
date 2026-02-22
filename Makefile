@@ -178,7 +178,7 @@ K9S_VERSION ?= v0.50.16
 KIND_VERSION ?= v0.30.0
 KPT_VERSION ?= v1.0.0-beta.57
 KUBECTL_VERSION ?= v1.34.1
-UV_VERSION ?= 0.6.2
+UV_VERSION ?= 0.10.4
 YQ_VERSION ?= v4.42.1
 
 ## EDA Versions and Decisions
@@ -481,7 +481,7 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 			OS="unknown-linux-gnu"; \
 		fi; \
 		UV_SRC="https://github.com/astral-sh/uv/releases/download/$(UV_VERSION)/uv-$${ARCH}-$${OS}.tar.gz"; \
-		$(call download-bin-from-archive,$(UV),$$UV_SRC,$(TOOLS),uv-$${ARCH}-$${OS},z,1); \
+		$(call download-bin-from-archive,$(UV),$$UV_SRC,$(TOOLS),uv-$${ARCH}-$${OS}/uv,z,1); \
 	}
 
 ## Download the kpt package and the catalog
