@@ -155,18 +155,31 @@
 # -----------------------------------------------------------------------------|
 # Repo to use to fetch edabuilder binary from. Defaults to nokia-eda/edabuilder
 # EDABUILDER_SRC := my-org/edabuilder
+#
+# When downloading pkgs and tools for use by the playground do not verify ssl certs
+# INSECURE := 1
 
 # Enable self-host operation via an eda-asset-host
 # -----------------------------------------------------------------------------|
 # Enable this to operate in self-host mode
 # USE_ASSET_HOST := 1
 
+# Option 1: If using a unified asset-host.
 # This can be FQDN, DNS or IP where the asset host can be reached
 # Do not add transport schemes (http/https/ssh) to ASSET_HOST
 # ASSET_HOST := eda-assets-01
 
-# Specify auth
-# ASSET_HOST_GIT_USERNAME := ""
-# ASSET_HOST_GIT_PASSWORD := ""
-# ASSET_HOST_ARTIFACTS_USERNAME := ""
-# ASSET_HOST_ARTIFACTS_PASSWORD := ""
+# Option 2: If bringing your own Registry, Git or Artifacts hosting
+#           for anything not being used from the unified asset-host
+#           define the endpoints as:
+# ASSET_HOST_REGISTRY := registry.bastion.corp.com
+# ASSET_HOST_GIT := https://git.bastion.corp.com
+# ASSET_HOST_ARTIFACTS := https://artifact.bastion.corp.com
+
+# Specify auth as base64 encoded values
+# B64_ASSET_HOST_GIT_USERNAME := ""
+# B64_ASSET_HOST_GIT_PASSWORD := ""
+# B64_ASSET_HOST_ARTIFACTS_USERNAME := ""
+# B64_ASSET_HOST_ARTIFACTS_PASSWORD := ""
+# B64_ASSET_HOST_REGISTRY_USERNAME := ""
+# B64_ASSET_HOST_REGISTRY_PASSWORD := ""

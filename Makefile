@@ -14,7 +14,7 @@ endif
 
 ifeq ($(USE_ASSET_HOST),1)
 include $(realpath $(TOP_DIR)/asset-host.conf.mk)
-$(info --> INFO: USE_ASSET_HOST=$(USE_ASSET_HOST) using ASSET_HOST=$(ASSET_HOST))
+$(info --> INFO: USE_ASSET_HOST=$(USE_ASSET_HOST))
 endif
 
 ## Top level options
@@ -287,8 +287,24 @@ KUBECTL ?= $(TOOLS)/kubectl-$(KUBECTL_VERSION)
 UV ?= $(TOOLS)/uv
 YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
 
+ifeq ($(INSECURE),1)
+CURL_INSECURE_OPT :=  --insecure
+GIT_SSL_NO_VERIFY := GIT_SSL_NO_VERIFY=true
+endif
+
+### Git command:
+GIT := $(GIT_SSL_NO_VERIFY) git
+
+ifdef GIT_AUTH
+GIT := $(GIT_AUTH) GIT_ASKPASS=$(TOP_DIR)/scripts/git-askpass-helper.sh $(GIT)
+endif
+
 ### Curl options:
-CURL := curl --silent --fail --show-error
+CURL := curl --silent --fail --show-error $(CURL_INSECURE_OPT)
+
+ifdef CURL_AUTH
+CURL += $(CURL_AUTH)
+endif
 
 SED ?= sed
 
@@ -486,11 +502,10 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
-#	$(KPT) pkg get $(EDA_KPT_PKG_SRC) $(KPT_PKG)
-	git clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | $(INDENT_OUT)
 
 $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in $(CATALOG))
-	git clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | $(INDENT_OUT)
 
 # $1 - tag to checkout
 # $2 - Location of the repo
@@ -500,25 +515,25 @@ define checkout-repo-at-tag
 	REPO=$(2)																			;\
 	STASH=$(3)																			;\
 	echo "--> INFO: $${REPO} - selected version: $${VERSION}"							;\
-	git -C $${REPO} fetch 2>&1 | $(INDENT_OUT)											;\
+	$(GIT) -C $${REPO} fetch 2>&1 | $(INDENT_OUT)											;\
 	tag="v$${VERSION}"																	;\
-	HEAD=$$(git -C $${REPO} rev-parse HEAD)												;\
-	if [[ "$$(git -C $${REPO} tag -l $${tag})" == "" ]]; then							 \
+	HEAD=$$($(GIT) -C $${REPO} rev-parse HEAD)												;\
+	if [[ "$$($(GIT) -C $${REPO} tag -l $${tag})" == "" ]]; then							 \
 		echo ""																			;\
 		echo "[ERROR]: $${VERSION} does not exist in $${REPO}"							;\
 		echo "         Do you need to run make download-pkgs ?"							;\
 		exit 1																			;\
 	fi																					;\
-	TAG_REF=$$(git -C $${REPO} rev-parse $${tag})										;\
+	TAG_REF=$$($(GIT) -C $${REPO} rev-parse $${tag})										;\
 	if [[ "$${TAG_REF}" == "$${HEAD}" ]]; then											 \
 		echo "--> INFO: $${REPO} - is at $${VERSION}"									;\
 		exit 0																			;\
 	fi																					;\
-	if [[ "$$(git -C $${REPO} status --porcelain --untracked-files=no)" != "" ]]		;\
+	if [[ "$$($(GIT) -C $${REPO} status --porcelain --untracked-files=no)" != "" ]]		;\
 	then																				 \
 		if [[ $${STASH} -eq 1 ]]; then 													 \
 			echo "--> INFO: stashing user customizations"								;\
-			git -C $${REPO} stash | $(INDENT_OUT)										;\
+			$(GIT) -C $${REPO} stash | $(INDENT_OUT)										;\
 		else 																			 \
 			echo ""																		;\
 			echo "[ERROR]: There are user customizations present in $${REPO}"			;\
@@ -526,31 +541,31 @@ define checkout-repo-at-tag
 			exit 1																		;\
 		fi 																				;\
 	fi																					;\
-	git -C $${REPO} -c advice.detachedHead=false checkout $${tag} 2>&1 | $(INDENT_OUT)	;\
-	echo "--> INFO: $${REPO} - is now at $$(git -C $${REPO} tag --points-at HEAD)"		;\
+	$(GIT) -C $${REPO} -c advice.detachedHead=false checkout $${tag} 2>&1 | $(INDENT_OUT)	;\
+	echo "--> INFO: $${REPO} - is now at $$($(GIT) -C $${REPO} tag --points-at HEAD)"		;\
 }
 endef
 
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog repos and check them out at the requested version
 	@echo "--> INFO: Updating $(KPT_PKG)"
-	@git -C $(KPT_PKG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
-	@git -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
+	@$(GIT) -C $(KPT_PKG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
+	@$(GIT) -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@echo "--> INFO: Updating $(CATALOG)"
-	@git -C $(CATALOG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
-	@git -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
+	@$(GIT) -C $(CATALOG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
+	@$(GIT) -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
 	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG),1)
 	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG),1)
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
-	git clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | $(INDENT_OUT)
 
 .PHONY: download-connect-k8s-helm-charts
 download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
 
 .PHONY: update-connect-k8s-helm-charts
 update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts updates
-	git -C $(K8S_HELM) pull
+	$(GIT) -C $(K8S_HELM) pull
 
 ##@ Cluster launch
 
@@ -748,6 +763,13 @@ ifeq ($(USE_ASSET_HOST),1)
 		$(YQ) eval ".data.GH_CATALOG_USER = \"$(GH_CATALOG_USER)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
 		$(YQ) eval ".data.YANG_REMOTE_URL = \"$(YANG_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE)							;\
 		$(YQ) eval ".data.LLM_DB_REMOTE_URL = \"$(LLM_DB_REMOTE_URL)\"" -i $(KPT_SETTERS_WORK_FILE)						;\
+		if [[ $(ASSET_HOST_REGISTRY_USING_AUTH) -eq 1 ]]; then															 \
+			$(YQ) eval ".data.GH_REGISTRY_USER = \"$(GH_REGISTRY_USER)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+			$(YQ) eval ".data.GH_REGISTRY_TOKEN = \"$(GH_REGISTRY_TOKEN)\"" -i $(KPT_SETTERS_WORK_FILE)					;\
+		fi																												;\
+		if [[ $(INSECURE) -eq 1 ]]; then																				 \
+			$(YQ) -i '.spec.skipTLSVerify = true' $(KPT_CORE)/appstore-gh/catalog.yaml									;\
+		fi																												;\
 	}
 endif
 
@@ -1689,13 +1711,13 @@ help:  ## Show the help menu
 .PHONY: ls-versions-core
 ls-versions-core: | $(KPT_PKG) ## List the core versions available in the kpt package
 	@echo "--> INFO: Available core versions are:"
-	@git -C $(KPT_PKG) tag | sort --version-sort --reverse | $(INDENT_OUT)
+	@$(GIT) -C $(KPT_PKG) tag | sort --version-sort --reverse | $(INDENT_OUT)
 	@echo "--> INFO: Selected core version is $(EDA_CORE_VERSION)"
 
 .PHONY: ls-versions-apps
 ls-versions-apps: | $(CATALOG) ## List the app sets available in the catalog
 	@echo "--> INFO: Available app sets are:"
-	@git -C $(CATALOG) tag --list 'v[0-9]*' | sort --version-sort --reverse | $(INDENT_OUT)
+	@$(GIT) -C $(CATALOG) tag --list 'v[0-9]*' | sort --version-sort --reverse | $(INDENT_OUT)
 	@echo "--> INFO: Selected app set is $(EDA_APPS_VERSION)"
 
 
