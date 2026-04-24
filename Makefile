@@ -186,6 +186,7 @@ YQ_VERSION ?= v4.42.1
 EDA_CORE_VERSION ?= 25.12.4
 EDA_APPS_VERSION ?= 25.12.4
 EDABUILDER_VERSION ?= v25.12.4
+EDACTL_VERSION ?= v$(EDA_CORE_VERSION)
 
 
 ### Release specific options:
@@ -287,6 +288,7 @@ TOPO_EMPTY ?= $(TOPOLOGY_DIR)/00-delete-all-nodes.yaml
 ## Tools:
 ## ----------------------------------------------------------------------------|
 EDABUILDER ?= $(TOOLS)/edabuilder
+EDACTL ?= $(TOOLS)/edactl
 GH ?= $(TOOLS)/gh
 HELM ?= $(TOOLS)/helm-$(HELM_VERSION)
 K9S ?= $(TOOLS)/k9s-$(K9S_VERSION)
@@ -387,6 +389,7 @@ KPT_SRC ?= https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_V
 K9S_SRC ?= https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
 YQ_SRC ?= https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 EDABUILDER_SRC ?= nokia-eda/edabuilder
+EDACTL_SRC ?= nokia-eda/edactl
 
 ### Pod Selectors
 ### ---------------------------------------------------------------------------|
@@ -441,14 +444,31 @@ create-tool-aliases: | $(TOOLS) ## Create aliases for versioned tools
 	}
 	@echo "--> TOOLS: To add the tools to your path, paste this in your shell: export PATH=\$$PATH:$(TOOLS)"
 
+# $1 Source repo where release exists
+# $2 Release tag (version)
+# $3 Release pattern to match download binary
+# $4 Where to output
+define download-bin-from-gh-release
+	$(GH) release download $(2) --repo $(1) --pattern $(3) --skip-existing -O $(4)
+	chmod a+x $(4)
+endef
 
 .PHONY: download-edabuilder
 download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
-	@$(GH) release download $(EDABUILDER_VERSION) --repo $(EDABUILDER_SRC) --pattern "edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)" --skip-existing -O $(EDABUILDER)
-	@chmod a+x $(EDABUILDER)
+	@$(call download-bin-from-gh-release,$(EDABUILDER_SRC),$(EDABUILDER_VERSION),edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH),$(EDABUILDER))
 
+.PHONY: download-edactl
+download-edactl: | $(BASE) $(GH) ## Download edactl
+ifeq ($(IS_EDA_CORE_LESSTHAN_264X),0)
+	@$(call download-bin-from-gh-release,$(EDACTL_SRC),$(EDACTL_VERSION),edactl-$(EDACTL_VERSION)-$(OS)-$(ARCH),$(EDACTL))
+else
+	@echo "--> TOOLS: edactl is available 26.4 onwards - you are at $(EDA_CORE_VERSION)"
+endif
+
+# $1 - Output binary path/name
+# $2 - URL to download it from
 define download-bin
-    $(info --> INFO: Downloading $(2))
+	echo "--> INFO: Downloading $(2)"
 	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi
 endef
 
