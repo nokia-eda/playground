@@ -15,6 +15,9 @@ nodes:
       - containerPort: 32767
         hostPort: 9443
         listenAddress: "0.0.0.0"
+      # - containerPort: 32768
+      #   hostPort: 9501
+      #   listenAddress: "0.0.0.0"
     # allow longer port-forwarding connection
     # see https://stackoverflow.com/a/48829363
     kubeadmConfigPatches:

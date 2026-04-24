@@ -213,8 +213,12 @@ IS_EDA_CORE_VERSION_258X ?= 0
 IS_EDA_APPS_VERSION_258X ?= 0
 
 IS_EDA_CORE_LESSTHAN_258X := 0
+
 IS_EDA_CORE_LESSTHAN_2512X := 0
 IS_EDA_APPS_LESSTHAN_2512X := 0
+
+IS_EDA_CORE_LESSTHAN_264X := 0
+IS_EDA_APPS_LESSTHAN_264X := 0
 
 #### Set core release specific options
 ifeq ($(findstring 24.,$(EDA_CORE_VERSION)),24.)
@@ -223,19 +227,27 @@ TOPO_CONFIGMAP_NAME := topo-config
 IS_EDA_CORE_VERSION_24X := 1
 IS_EDA_CORE_LESSTHAN_258X := 1
 IS_EDA_CORE_LESSTHAN_2512X := 1
+IS_EDA_CORE_LESSTHAN_264X := 1
 
 else ifeq ($(findstring 25.4,$(EDA_CORE_VERSION)),25.4)
 IS_EDA_CORE_VERSION_254X := 1
 IS_EDA_CORE_LESSTHAN_258X := 1
 IS_EDA_CORE_LESSTHAN_2512X := 1
+IS_EDA_CORE_LESSTHAN_264X := 1
+
 APP_INSTALL_BULK_TEMPLATE := $(APP_INSTALL_BULK_TEMPLATE_254X)
 
 else ifeq ($(findstring 25.8,$(EDA_CORE_VERSION)),25.8)
 IS_EDA_CORE_VERSION_258X := 1
 IS_EDA_CORE_LESSTHAN_2512X := 1
+IS_EDA_CORE_LESSTHAN_264X := 1
+
+else ifeq ($(findstring 25.12,$(EDA_CORE_VERSION)),25.12)
+IS_EDA_CORE_LESSTHAN_264X := 1
 
 endif
 
+##### Now set core specific options
 ifeq ($(IS_EDA_CORE_LESSTHAN_258X),1)
 EDA_PLATFORM_CMD := cluster
 endif
@@ -250,14 +262,17 @@ endif
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
 IS_EDA_APPS_VERSION_24X := 1
 IS_EDA_APPS_LESSTHAN_2512X := 1
+IS_EDA_APPS_LESSTHAN_264X := 1
 
 else ifeq ($(findstring 25.4,$(EDA_APPS_VERSION)),25.4)
 IS_EDA_APPS_VERSION_254X := 1
 IS_EDA_APPS_LESSTHAN_2512X := 1
+IS_EDA_APPS_LESSTHAN_264X := 1
 
 else ifeq ($(findstring 25.8,$(EDA_APPS_VERSION)),25.8)
 IS_EDA_APPS_VERSION_258X := 1
 IS_EDA_APPS_LESSTHAN_2512X := 1
+IS_EDA_APPS_LESSTHAN_264X := 1
 
 else ifeq ($(findstring 25.12,$(EDA_APPS_VERSION)),25.12)
 IS_EDA_APPS_LESSTHAN_264X := 1
@@ -988,7 +1003,12 @@ install-external-package-eda-issuer-api: | $(BASE) $(KPT) load-image-pull-secret
 INSTALL_EXTERNAL_PACKAGE_LIST=
 INSTALL_EXTERNAL_PACKAGE_LIST += install-eda-core-ns
 INSTALL_EXTERNAL_PACKAGE_LIST += load-image-pull-secret
+
+# Fluentd package is only installed < 26.x
+ifeq ($(IS_EDA_CORE_LESSTHAN_264X),1)
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_FLUENTD_INSTALL),,install-external-package-fluentd)
+endif
+
 INSTALL_EXTERNAL_PACKAGE_LIST += $(if $(NO_CERT_MANAGER_INSTALL),,install-external-package-cert-manager)
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-deployment-ready
 INSTALL_EXTERNAL_PACKAGE_LIST += cm-is-webhook-ready
@@ -1067,6 +1087,9 @@ endif
 ifeq ($(IS_EDA_CORE_LESSTHAN_2512X),0)
 CE_DEPLOYMENT_LIST+=eda-ai-engine
 endif
+ifeq ($(IS_EDA_CORE_LESSTHAN_264X),0)
+CE_DEPLOYMENT_LIST+=eda-cluster-manager
+endif
 
 .PHONY: eda-is-core-deployment-ready
 eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core pods to launch and be ready
@@ -1115,13 +1138,23 @@ APPS_INSTALL_LIST_BUILTIN += routingpolicies
 APPS_INSTALL_LIST_BUILTIN += security
 APPS_INSTALL_LIST_BUILTIN += services
 APPS_INSTALL_LIST_BUILTIN += siteinfo
+
+ifeq ($(IS_EDA_APPS_LESSTHAN_264X),1)
 APPS_INSTALL_LIST_BUILTIN += system
+endif
+
 APPS_INSTALL_LIST_BUILTIN += timing
 APPS_INSTALL_LIST_BUILTIN += topologies
 
 ifeq ($(IS_EDA_APPS_LESSTHAN_2512X),0)
 APPS_INSTALL_LIST_BUILTIN += management
 APPS_INSTALL_LIST_BUILTIN += support
+endif
+
+ifeq ($(IS_EDA_APPS_LESSTHAN_264X),0)
+APPS_INSTALL_LIST_BUILTIN += coreext
+APPS_INSTALL_LIST_BUILTIN += microsegmentation
+APPS_INSTALL_LIST_BUILTIN += mpls
 endif
 
 NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
