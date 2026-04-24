@@ -3,6 +3,12 @@
 ## --------------------------------------------------------------------------------------------------------------------|
 ## 25.12 and beyond
 
+ifndef NETWORKTOPOLOGY_VERSION
+$(error ERROR: NETWORKTOPOLOGY_VERSION is not defined)
+endif
+
+TOPOLOGY_COMPLETED_EDACTL_QUERY := .namespace.workflows.topologies_eda_nokia_com.$(NETWORKTOPOLOGY_VERSION).networktopology
+
 .PHONY: topology-load-using-workflow-wait-to-be-ready
 topology-load-using-workflow-wait-to-be-ready: | eda-is-toolbox-ready
 	@{	\
@@ -48,7 +54,7 @@ topology-is-workflow-completed: | $(BASE) $(KUBECTL) $(YQ) eda-is-toolbox-ready 
 		IS_IT_DONE=NO 																																		;\
 		echo "--> TOPO: Waiting for $${TOPO_NAME} [workflow:$${workflow_id}] to be completed"																;\
 		while [[ $${IS_IT_DONE} != "COMPLETED"	]]; do 																										 \
-			CURRENT_STATE=$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -c "export TOPO_NAME=$${TOPO_NAME} && $(EDACTL_BIN) -n $(EDA_USER_NAMESPACE) query .namespace.workflows.topologies_eda_nokia_com.v1alpha1.networktopology -o yaml | $(EDATOOLBOX_TOOLS)/yq 'filter(.metadata.name == ( env(TOPO_NAME) )) | .[].workflowStatus.state'" | tr -d '\r')	;\
+			CURRENT_STATE=$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) exec -it $${TOOLBOX_POD} -- bash -c "export TOPO_NAME=$${TOPO_NAME} && $(EDACTL_BIN) -n $(EDA_USER_NAMESPACE) query $(TOPOLOGY_COMPLETED_EDACTL_QUERY) -o yaml | $(EDATOOLBOX_TOOLS)/yq 'filter(.metadata.name == ( env(TOPO_NAME) )) | .[].workflowStatus.state'" | tr -d '\r')	;\
 			IS_IT_DONE=$$(echo "$${CURRENT_STATE}" | tr '[:lower:]' '[:upper:]')																			;\
 			echo "--> TOPO: $${TOPO_NAME} [workflow:$${workflow_id}] is $${IS_IT_DONE}"																		;\
 			if [[ "$${IS_IT_DONE}" == "FAILED" ]] || [[ "$${IS_IT_DONE}" == "TERMINATED" ]]; then															 \

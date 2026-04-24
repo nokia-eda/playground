@@ -200,6 +200,7 @@ TOPO_CONFIGMAP_NAME ?= eda-topology
 EDA_PLATFORM_CMD ?= platform
 EDACTL_QUERY_OUTPUT_YAML ?= query -o yaml
 TOPOLOGY_LOAD_TARGET=topology-load-using-workflow-wait-to-be-ready topology-load-using-workflow topology-is-workflow-completed
+NETWORKTOPOLOGY_VERSION=v1
 
 IS_EDA_CORE_VERSION_24X ?= 0
 IS_EDA_APPS_VERSION_24X ?= 0
@@ -257,6 +258,14 @@ else ifeq ($(findstring 25.8,$(EDA_APPS_VERSION)),25.8)
 IS_EDA_APPS_VERSION_258X := 1
 IS_EDA_APPS_LESSTHAN_2512X := 1
 
+else ifeq ($(findstring 25.12,$(EDA_APPS_VERSION)),25.12)
+IS_EDA_APPS_LESSTHAN_264X := 1
+
+endif
+
+##### Now set apps specific options
+ifeq ($(IS_EDA_APPS_LESSTHAN_264X),1)
+NETWORKTOPOLOGY_VERSION := v1alpha1
 endif
 
 ## Topology:
