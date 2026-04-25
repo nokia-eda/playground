@@ -1,5 +1,6 @@
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+.DEFAULT_GOAL := help
 
 TOP_DIR := $(abspath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BASE=$(CURDIR)
