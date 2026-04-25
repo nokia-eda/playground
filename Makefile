@@ -1298,6 +1298,16 @@ endif
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PG),EDA PLAYGROUND)
 
+.PHONY: eda-install-proxies
+eda-install-proxies: | $(BASE) $(KUBECTL) ## Enable proxy-server endpoints in your eda api-server
+	@{	\
+		echo "--> INFO: Configuring httpproxies for api-server"					;\
+		HTTP_PROXIES=$(KPT_CORE)/proxies										;\
+		if [[ -d $${HTTP_PROXIES} ]]; then										 \
+			$(KUBECTL) apply -f $${HTTP_PROXIES}/ | $(INDENT_OUT)				;\
+		fi																		;\
+	}
+
 .PHONY: eda-start-core
 eda-start-core: ## Start EDA platform using edactl in toolbox
 	@$(call EDACTL_CMD,$(EDA_PLATFORM_CMD) start)
