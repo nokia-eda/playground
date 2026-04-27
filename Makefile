@@ -327,7 +327,8 @@ GIT := $(GIT_AUTH) GIT_ASKPASS=$(TOP_DIR)/scripts/git-askpass-helper.sh $(GIT)
 endif
 
 ### Curl options:
-CURL := curl --silent --fail --show-error $(CURL_INSECURE_OPT)
+CURL_OPTS ?= --location --silent --fail --show-error
+CURL := curl $(CURL_OPTS) $(CURL_INSECURE_OPT)
 
 ifdef CURL_AUTH
 CURL += $(CURL_AUTH)
@@ -405,16 +406,13 @@ KPT_SRC ?= https://github.com/GoogleContainerTools/kpt/releases/download/$(KPT_V
 K9S_SRC ?= https://github.com/derailed/k9s/releases/download/$(K9S_VERSION)/k9s_$(UNAME)_$(ARCH).tar.gz
 YQ_SRC ?= https://github.com/mikefarah/yq/releases/download/$(YQ_VERSION)/yq_$(OS)_$(ARCH)
 
-# These are the exact names of the binaries uploaded to the github release and is also used to download the binaries from the asset host
-EDABUILDER_BIN_PATTERN ?= edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)
-EDACTL_BIN_PATTERN ?= edactl-$(EDACTL_VERSION)-$(OS)-$(ARCH)
-ifeq ($(USE_ASSET_HOST),1)
-EDABUILDER_SRC := $(ASSET_HOST_ARTIFACTS_TOOLS_URL)/$(EDABUILDER_BIN_PATTERN)
-EDACTL_SRC := $(ASSET_HOST_ARTIFACTS_TOOLS_URL)/$(EDACTL_BIN_PATTERN)
-else
-EDABUILDER_SRC ?= nokia-eda/edabuilder
-EDACTL_SRC ?= nokia-eda/edactl
-endif
+EDABUILDER_SRC_ROOT ?= https://github.com/nokia-eda/edabuilder/releases/download/$(EDABUILDER_VERSION)
+EDABUILDER_BIN_NAME?= edabuilder-$(EDABUILDER_VERSION)-$(OS)-$(ARCH)
+EDABUILDER_SRC ?= $(EDABUILDER_SRC_ROOT)/$(EDABUILDER_BIN_NAME)
+
+EDACTL_SRC_ROOT ?= https://github.com/nokia-eda/edactl/releases/download/$(EDACTL_VERSION)
+EDACTL_BIN_NAME ?= edactl-$(EDACTL_VERSION)-$(OS)-$(ARCH)
+EDACTL_SRC ?= $(EDACTL_SRC_ROOT)/$(EDACTL_BIN_NAME)
 
 ### Pod Selectors
 ### ---------------------------------------------------------------------------|
@@ -469,27 +467,31 @@ create-tool-aliases: | $(TOOLS) ## Create aliases for versioned tools
 	}
 	@echo "--> TOOLS: To add the tools to your path, paste this in your shell: export PATH=\$$PATH:$(TOOLS)"
 
-# $1 - Output binary path/name
-# $2 - URL to download it from
+# $1 - Tool name/key
+#      if $1_USING_GHCLI=1 then gh will be used to download the binary
+# $2 - Source: URL to download it from OR the Github repo name
+# $3 - Destination: Output binary to path/name
+# $4 - GH OPTS: pattern name to match for assets on the release tag
+# $5 - GH OPTS: release tag of the repo
 define download-bin
-	echo "--> INFO: Downloading $(2)"
-	if test ! -f $(1); then $(CURL) -Lo $(1) $(2) >/dev/null && chmod a+x $(1); fi
+	{	\
+		if [[ "$($(1)_USING_GHCLI)" == "1" ]]; then								 \
+			echo "--> INFO: Downloading $(1) using gh from $(2) $(5)"			;\
+			$(GH) release download												 \
+			--repo $(2)															 \
+			--output $(3)														 \
+			--pattern $(4)														 \
+			--skip-existing														 \
+			$(5)																;\
+		else																	 \
+			echo "--> INFO: Downloading $(1) from $(2)"							;\
+			if [[ ! -f $(3) ]]; then 											 \
+				$(CURL) --output $(3) $(2) >/dev/null 							;\
+			fi																	;\
+		fi																		;\
+		chmod a+x $(3)															;\
+	}
 endef
-
-# $1 Source repo where release exists or its url in the asset host
-# $2 Release tag (version)
-# $3 Release pattern to match download binary
-# $4 Where to output
-ifeq ($(USE_ASSET_HOST),1)
-define download-bin-from-gh-release
-	$(call download-bin,$(4),$(1))
-endef
-else
-define download-bin-from-gh-release
-	$(GH) release download $(2) --repo $(1) --pattern $(3) --skip-existing -O $(4)
-	chmod a+x $(4)
-endef
-endif
 
 # $1 - Output binary name to extract from the archive
 # $2 - URL to download it from
@@ -499,38 +501,38 @@ endif
 # $6 - number of path components to strip (optional)
 # This does assume that $(1) on disk is equal to $(3)/$(4) where $(4) is the path+name of the bin inside the archive
 define download-bin-from-archive
-	if test ! -f $(1); then $(CURL) -L --output - $(2) | tar -x$(5) $(if $(6),--strip-components=$(6),) --to-stdout -C $(3) $(4) > $(1) && chmod +x $(1); fi
+	if test ! -f $(1); then $(CURL) --output - $(2) | tar -x$(5) $(if $(6),--strip-components=$(6),) --to-stdout -C $(3) $(4) > $(1) && chmod +x $(1); fi
 endef
 
 .PHONY: download-edabuilder
 download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
-	@$(call download-bin-from-gh-release,$(EDABUILDER_SRC),$(EDABUILDER_VERSION),$(EDABUILDER_BIN_PATTERN),$(EDABUILDER))
+	@$(call download-bin,edabuilder,$(EDABUILDER_SRC),$(EDABUILDER),$(EDABUILDER_BIN_NAME),$(EDABUILDER_VERSION))
 
 .PHONY: download-edactl
 download-edactl: | $(BASE) $(GH) ## Download edactl
 ifeq ($(IS_EDA_CORE_LESSTHAN_264X),0)
-	@$(call download-bin-from-gh-release,$(EDACTL_SRC),$(EDACTL_VERSION),$(EDACTL_BIN_PATTERN),$(EDACTL))
+	@$(call download-bin,edactl,$(EDACTL_SRC),$(EDACTL),$(EDACTL_BIN_NAME),$(EDACTL_VERSION))
 else
 	@echo "--> TOOLS: edactl is available 26.4 onwards - you are at $(EDA_CORE_VERSION)"
 endif
 
 $(KIND): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kind is present in $(KIND))
-	@$(call download-bin,$(KIND),$(KIND_SRC))
+	@$(call download-bin,kind,$(KIND_SRC),$(KIND))
 
 $(KUBECTL): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kubectl is present in $(KUBECTL))
-	@$(call download-bin,$(KUBECTL),$(KUBECTL_SRC))
+	@$(call download-bin,kubectl,$(KUBECTL_SRC),$(KUBECTL))
 
 $(HELM): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring helm is present in $(HELM))
 	@$(call download-bin-from-archive,$(HELM),$(HELM_SRC),$(TOOLS),${OS}-${ARCH}/helm,z,1)
 
 $(KPT): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring kpt is present in $(KPT))
-	@$(call download-bin,$(KPT),$(KPT_SRC))
+	@$(call download-bin,kpt,$(KPT_SRC),$(KPT))
 
 $(K9S): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring k9s is present in $(K9S))
 	@$(call download-bin-from-archive,$(K9S),$(K9S_SRC),$(TOOLS),k9s,z)
 
 $(YQ): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring yq is present in $(YQ))
-	@$(call download-bin,$(YQ),$(YQ_SRC))
+	@$(call download-bin,yq,$(YQ_SRC),$(YQ))
 
 $(GH): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring gh is present in $(GH))
 	@{ \
