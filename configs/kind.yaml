@@ -9,15 +9,17 @@ networking:
   apiServerAddress: "127.0.0.1"
 nodes:
   - role: control-plane
-    # reserve 32767 node port to expose EDA UI/API over this port
-    # the hostPort is overwritten at runtime based on the selected EXT_HTTPS_PORT variable
+    # https://kind.sigs.k8s.io/docs/user/configuration/#extra-port-mappings
     extraPortMappings:
+      # reserve 32767 node port to expose EDA UI/API HTTPS service over this port
+      # the hostPort is overwritten at runtime based on the selected EXT_HTTPS_PORT variable
       - containerPort: 32767
         hostPort: 9443
         listenAddress: "0.0.0.0"
-      # - containerPort: 32768
-      #   hostPort: 9501
-      #   listenAddress: "0.0.0.0"
+      # reserve 32766 node port to expose EDA gRPC proxy service over this port (for edactl)
+      - containerPort: 32766
+        hostPort: 51206
+        listenAddress: "0.0.0.0"
     # allow longer port-forwarding connection
     # see https://stackoverflow.com/a/48829363
     kubeadmConfigPatches:

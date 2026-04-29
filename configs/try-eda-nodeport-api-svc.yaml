@@ -15,5 +15,9 @@ spec:
       nodePort: 32767
       port: 443
       targetPort: 9443
+    - name: grpc-proxy
+      nodePort: 32766
+      port: 51206
+      targetPort: 51206
   selector:
     eda.nokia.com/app: apiserver
