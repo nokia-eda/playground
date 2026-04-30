@@ -139,6 +139,10 @@ endif
 
 TRYEDA_SVC_FILE ?= $(CFG)/try-eda-nodeport-api-svc.yaml
 TRYEDA_SVC_FILE_REAL_LOC := $(realpath $(TRYEDA_SVC_FILE))
+TRYEDA_BRANCH_SVC_FILE ?= $(CFG)/try-eda-nodeport-aggregated-svc.yaml
+TRYEDA_BRANCH_SVC_FILE_REAL_LOC := $(realpath $(TRYEDA_BRANCH_SVC_FILE))
+TRYEDA_BRANCH_ENDPOINTSLICE_FILE ?= $(CFG)/try-eda-nodeport-aggregated-endpointslice.yaml
+TRYEDA_BRANCH_ENDPOINTSLICE_FILE_REAL_LOC := $(realpath $(TRYEDA_BRANCH_ENDPOINTSLICE_FILE))
 
 APPS_INSTALL_CRS ?= $(CATALOG)/install-crs
 APPS_VENDOR ?= nokia
@@ -1751,6 +1755,45 @@ create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to ex
 		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')	;\
 		CLUSTER_EXT_HTTPS_PORT=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.httpsPort}')	;\
 		echo "--> The UI can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${CLUSTER_EXT_HTTPS_PORT}"																					;\
+	}
+
+.PHONY: enforce-domain-name-enforcement
+enforce-domain-name-enforcement: | $(KUBECTL) ## Enforce domain name enforcement for the cluster
+	@echo "--> INFO: Enforcing domain name enforcement for the cluster"
+	@$(KUBECTL) -n $(EDA_CORE_NAMESPACE) patch engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) \
+	--type="json" \
+	--patch='[{"op": "replace", "path": "/spec/cluster/external/relaxDomainNameEnforcement", "value": false}]' 2>&1 | $(INDENT_OUT)
+
+.PHONY: expose-try-eda-branch
+expose-try-eda-branch: | $(KUBECTL) $(YQ) enforce-domain-name-enforcement ## Create Try EDA nodeport service to expose the API/UI for branched clusters
+	@{	\
+		if [[ -z "$(BRANCH_NAME)" ]]; then																																						 \
+			echo "--> ERROR: BRANCH_NAME is not provided!"																																		;\
+			echo "--> Available branches are:"																																					;\
+			$(KUBECTL) -n $(EDA_CORE_NAMESPACE) get branches.core.eda.nokia.com | $(INDENT_OUT)																									;\
+			exit 1																																												;\
+		fi																																														;\
+		export branches="branches.core.eda.nokia.com"																																			;\
+		export NODEPORT_SVC="$(BUILD)/try-eda-nodeport-aggregated-svc-$(BRANCH_NAME).yaml"																														;\
+		export NODEPORT_ENDPOINTSLICE="$(BUILD)/try-eda-nodeport-aggregated-endpointslice-$(BRANCH_NAME).yaml"																									;\
+		cp -f $(TRYEDA_BRANCH_SVC_FILE_REAL_LOC) "$${NODEPORT_SVC}"																																;\
+		cp -f $(TRYEDA_BRANCH_ENDPOINTSLICE_FILE_REAL_LOC) "$${NODEPORT_ENDPOINTSLICE}"																											;\
+		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i "$${NODEPORT_SVC}"																										;\
+		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i "$${NODEPORT_ENDPOINTSLICE}"																							;\
+		endpointslice_name="vcluster-$(BRANCH_NAME)-eda-api-x-$(EDA_CORE_NAMESPACE)-x-$(BRANCH_NAME)-vcluster-ipv4"																				;\
+		endpoint_ip="$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) get endpointslices.discovery.k8s.io $${endpointslice_name} -o=jsonpath='{.endpoints[0].addresses[0]}')"								;\
+		BRANCH_PORT_API="$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) get $${branches} $(BRANCH_NAME) -o=jsonpath='{.status.port}')"																	;\
+		NODE_PORT=$$(( 32766 - $$(( $${BRANCH_PORT_API} - 9500)) ))																																;\
+		$(YQ) eval ".metadata.name = \"try-eda-aggregated-$(BRANCH_NAME)\"" -i "$${NODEPORT_SVC}"																								;\
+		$(YQ) eval ".spec.ports[0].port = $${BRANCH_PORT_API}" -i "$${NODEPORT_SVC}"																											;\
+		$(YQ) eval ".spec.ports[0].nodePort = $${NODE_PORT}" -i "$${NODEPORT_SVC}"																												;\
+		$(YQ) eval ".metadata.name = \"try-eda-aggregated-$(BRANCH_NAME)-ipv4\"" -i "$${NODEPORT_ENDPOINTSLICE}"																				;\
+		$(YQ) eval ".metadata.labels.\"kubernetes.io/service-name\" = \"try-eda-aggregated-$(BRANCH_NAME)\"" -i "$${NODEPORT_ENDPOINTSLICE}"														;\
+		$(YQ) eval ".endpoints[0].addresses = [\"$${endpoint_ip}\"]" -i "$${NODEPORT_ENDPOINTSLICE}"																							;\
+		$(KUBECTL) apply -f $${NODEPORT_SVC} 2>&1 | $(INDENT_OUT)																																;\
+		$(KUBECTL) apply -f $${NODEPORT_ENDPOINTSLICE} 2>&1 | $(INDENT_OUT)																														;\
+		CLUSTER_EXT_DOMAIN_NAME=$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get engineconfigs.core.eda.nokia.com $(CLUSTER_MEMBER_NAME) -ojsonpath='{.spec.cluster.external.domainName}')	;\
+		echo "--> The UI for branch ($(BRANCH_NAME)) can be accessed using https://$${CLUSTER_EXT_DOMAIN_NAME}:$${BRANCH_PORT_API}"																;\
 	}
 
 .PHONY: ls-ways-to-reach-api-server

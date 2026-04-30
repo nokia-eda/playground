@@ -20,6 +20,26 @@ nodes:
       - containerPort: 32766
         hostPort: 51206
         listenAddress: "0.0.0.0"
+    # reserve node ports for branched clusters
+      - containerPort: 32765
+        hostPort: 9501            # branch 1 UI/API
+        listenAddress: "0.0.0.0"
+      - containerPort: 32764
+        hostPort: 9502            # branch 1 GRPC
+        listenAddress: "0.0.0.0"
+      - containerPort: 32763
+        hostPort: 9503            # branch 2 UI/API
+        listenAddress: "0.0.0.0"
+      - containerPort: 32762
+        hostPort: 9504            # branch 2 GRPC
+        listenAddress: "0.0.0.0"
+      - containerPort: 32761
+        hostPort: 9505            # branch 3 UI/API
+        listenAddress: "0.0.0.0"
+      - containerPort: 32760
+        hostPort: 9506            # branch 3 GRPC
+        listenAddress: "0.0.0.0"
+
     # allow longer port-forwarding connection
     # see https://stackoverflow.com/a/48829363
     kubeadmConfigPatches:

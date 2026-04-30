@@ -1,0 +1,20 @@
+# EndpointSlice backs the selectorless NodePort (label kubernetes.io/service-name → Service).
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: try-eda-aggregated-ipv4
+  namespace: eda-system
+  labels:
+    kubernetes.io/service-name: try-eda-aggregated
+addressType: IPv4
+ports:
+  - name: aggregated
+    port: 9443
+    protocol: TCP
+# This is updated at runtime based on the endpoint slice of the service:
+# vcluster-{BRANCH_NAME}-eda-api-x-{EDA_CORE_NAMESPACE}-x-{BRANCH_NAME}-vcluster-ipv4
+endpoints:
+  - addresses:
+      - "10.244.0.70"
+    conditions:
+      ready: true
