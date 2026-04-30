@@ -436,6 +436,7 @@ $(TOOLS): | $(BASE); $(info --> INFO: Creating a tools dir: $(TOOLS))
 ## Download tools
 
 DOWNLOAD_TOOLS_LIST=
+DOWNLOAD_TOOLS_LIST += download-edactl
 DOWNLOAD_TOOLS_LIST += $(HELM)
 DOWNLOAD_TOOLS_LIST += $(KPT)
 DOWNLOAD_TOOLS_LIST += $(KUBECTL)
@@ -484,8 +485,8 @@ define download-bin
 			--skip-existing														 \
 			$(5)																;\
 		else																	 \
-			echo "--> INFO: Downloading $(1) from $(2)"							;\
 			if [[ ! -f $(3) ]]; then 											 \
+				echo "--> INFO: Downloading $(1) from $(2)"						;\
 				$(CURL) --output $(3) $(2) >/dev/null 							;\
 			fi																	;\
 		fi																		;\
@@ -505,11 +506,11 @@ define download-bin-from-archive
 endef
 
 .PHONY: download-edabuilder
-download-edabuilder: | $(BASE) $(GH) ## Download edabuilder
+download-edabuilder: | $(BASE) $(TOOLS) $(GH) ## Download edabuilder
 	@$(call download-bin,edabuilder,$(EDABUILDER_SRC),$(EDABUILDER),$(EDABUILDER_BIN_NAME),$(EDABUILDER_VERSION))
 
 .PHONY: download-edactl
-download-edactl: | $(BASE) $(GH) ## Download edactl
+download-edactl: | $(BASE) $(TOOLS) $(GH) ; $(info --> TOOLS: Ensuring edactl is present in $(EDACTL)) @ ## Download edactl
 ifeq ($(IS_EDA_CORE_LESSTHAN_264X),0)
 	@$(call download-bin,edactl,$(EDACTL_SRC),$(EDACTL),$(EDACTL_BIN_NAME),$(EDACTL_VERSION))
 else
@@ -534,6 +535,9 @@ $(K9S): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring k9s is present in $(K9S)
 $(YQ): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring yq is present in $(YQ))
 	@$(call download-bin,yq,$(YQ_SRC),$(YQ))
 
+ifeq ($(USE_ASSET_HOST),1)
+$(GH):
+else
 $(GH): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring gh is present in $(GH))
 	@{ \
 		OS="$(OS)"; \
@@ -545,6 +549,7 @@ $(GH): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring gh is present in $(GH))
 		GH_SRC="https://github.com/cli/cli/releases/download/v$(GH_VERSION)/gh_$(GH_VERSION)_$${OS}_$(ARCH).$${EXT}"; \
 		$(call download-bin-from-archive,$(GH),$${GH_SRC},$(TOOLS),gh_$(GH_VERSION)_$${OS}_$(ARCH)/bin/gh,z,2); \
 	}
+endif
 
 $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 	@{ \
