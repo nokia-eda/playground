@@ -320,11 +320,11 @@ YQ ?= $(TOOLS)/yq-$(YQ_VERSION)
 
 ifeq ($(INSECURE),1)
 CURL_INSECURE_OPT :=  --insecure
-GIT_SSL_NO_VERIFY := GIT_SSL_NO_VERIFY=true
+GIT_INSECURE_OPT := GIT_SSL_NO_VERIFY=true
 endif
 
 ### Git command:
-GIT := $(GIT_SSL_NO_VERIFY) git
+GIT := $(GIT_INSECURE_OPT) git
 
 ifdef GIT_AUTH
 GIT := $(GIT_AUTH) GIT_ASKPASS=$(TOP_DIR)/scripts/git-askpass-helper.sh $(GIT)
