@@ -155,7 +155,12 @@ APP_INSTALL_MODE ?= BULK
 APP_INSTALL_BULK_TEMPLATE ?= $(TOP_DIR)/configs/bulk-app-installer-install-template.yaml
 APP_INSTALL_BULK_TEMPLATE_254X ?= $(TOP_DIR)/configs/bulk-app-workflow-template.yaml
 APP_INSTALL_BULK_CR ?= $(BUILD)/bulk-app-install-workflow.yaml
-APP_INSTALL_BULK_WF_NAME ?= eda-apps-bulk-install
+APP_INSTALL_BULK_WF_NAME ?= eda-apps-install
+
+APP_UPGRADE_BULK_TEMPLATE ?= $(TOP_DIR)/configs/bulk-app-installer-upgrade-template.yaml
+APP_UPGRADE_BULK_CR ?= $(BUILD)/bulk-app-upgrade-workflow.yaml
+APP_UPGRADE_BULK_WF_NAME ?= eda-apps-upgrade
+APP_UPGRADE_BULK_UPG_TYPE ?= semver
 
 ## Print all of the pref files information
 # $(info --> INFO: Using $(PG_PREFS_REAL_LOC) as the preferences file)
@@ -1201,7 +1206,14 @@ APPS_INSTALL_LIST_BUILTIN += microsegmentation
 APPS_INSTALL_LIST_BUILTIN += mpls
 endif
 
+ALSO_INSTALL_APPS ?=
+ALSO_INSTALL_APPS_CATALOG_NAME ?= $(APPS_CATALOG_NAME)
+
 NUMBER_OF_PARALLEL_APP_INSTALLS ?= 20
+
+EXCLUDE_APPS_FROM_UPGRADE?=
+# system is deprecated in 26.4.x / v6.x onwards
+EXCLUDE_APPS_FROM_UPGRADE += system.eda.nokia.com
 
 # macos stock bash does not support associative arrays
 # Do not __improve__ with using declare -A
@@ -1311,16 +1323,21 @@ eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) $(YQ) apps-is-appflow-ready ##
 	@echo "--> INFO: EDA_APPS_VERSION=$(EDA_APPS_VERSION)"
 ifeq ($(USE_BULK_APP_INSTALL),1)
 	@$(call BUILD_BULK_CRS,$(APP_INSTALL_BULK_TEMPLATE),$(APP_INSTALL_BULK_CR),$(EDA_APPS_INSTALL_NAMESPACE),$(APP_INSTALL_BULK_WF_NAME),install)
-	@{	\
-		apps=($(APPS_INSTALL_LIST_BUILTIN))																;\
-		echo "--> INSTALL:APP:BULK: Installing $${#apps[@]} apps in bulk mode from catalog $(CATALOG)"	;\
-	}
+	@$(call BUILD_BULK_CRS_ADDITIONAL_APPS,$(APP_INSTALL_BULK_CR),$(ALSO_INSTALL_APPS),$(ALSO_INSTALL_APPS_CATALOG_NAME))
 	@$(call RUN_APP_WF,$(APP_INSTALL_BULK_WF_NAME),$(APP_INSTALL_BULK_CR),install)
 else
 	@echo "--> INSTALL:APP: Installing apps from catalog $(CATALOG)"
 	@echo $(APPS_INSTALL_LIST_BUILTIN) | tr ' ' '\n' | \
 		$(XARGS_CMD)  -P $(words $(APPS_INSTALL_LIST_BUILTIN)) -I {} bash -c '$(call INSTALL_APP,$(APPS_VENDOR),{})'
 endif
+
+# # Hide the target completely for < 26.4
+# ifeq ($(IS_EDA_CORE_LESSTHAN_264X),0)
+# .PHONY: eda-upgrade-apps
+# eda-upgrade-apps: | $(BASE) $(CATALOG) $(KUBECTL) $(YQ) apps-is-appflow-ready ## Upgrade the installed eda apps to their latest versions in the catalog
+# 	@$(call BUILD_BULK_UPGRADE_CRS,$(APP_UPGRADE_BULK_TEMPLATE),$(APP_UPGRADE_BULK_CR),$(EDA_CORE_NAMESPACE),$(APP_UPGRADE_BULK_WF_NAME),install,$(EXCLUDE_APPS_FROM_UPGRADE),$(APP_UPGRADE_BULK_UPG_TYPE),$(CATALOG))
+# 	@$(call RUN_APP_WF,$(APP_UPGRADE_BULK_WF_NAME),$(APP_UPGRADE_BULK_CR),upgrade)
+# endif
 
 .PHONY: list-catalog-apps
 list-catalog-apps: | $(BASE) $(CATALOG) $(UV) ## List the apps in the catalog
