@@ -1322,6 +1322,10 @@ else
 		$(XARGS_CMD)  -P $(words $(APPS_INSTALL_LIST_BUILTIN)) -I {} bash -c '$(call INSTALL_APP,$(APPS_VENDOR),{})'
 endif
 
+.PHONY: list-catalog-apps
+list-catalog-apps: | $(BASE) $(CATALOG) $(UV) ## List the apps in the catalog
+	@$(UV) run --script $(TOP_DIR)/scripts/list-catalog-apps.py -c $(CATALOG)
+
 .PHONY: eda-bootstrap
 eda-bootstrap: | $(BASE) $(KPT) eda-configure-playground; $(info --> KPT: Bootstrapping EDA) @ ## Load allocation pools, secrets, node profiles...
 	@$(call INSTALL_KPT_PACKAGE,$(KPT_PG),EDA PLAYGROUND)
