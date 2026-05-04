@@ -387,6 +387,10 @@ GH_RU ?= Ym05cmFXRXRaV1JoTFdKdmRBbz0K
 GH_SET_REG ?= base64 -d | cut -c 4- | echo -n "$$(echo -n 'Z2hwCg==' | base64 -d)$$(cat -)"
 GH_SET_CAT ?= $(GH_SET_REG)
 
+KPT_PKG_BRANCH ?= main
+CATALOG_PKG_BRANCH ?= main
+CONNECT_PKG_BRANCH ?= main
+
 GH_KPT_URL ?= github.com/nokia-eda/kpt.git
 GH_CAT_URL ?= github.com/nokia-eda/catalog.git
 GH_K8s_HELM_URL ?= github.com/nokia-eda/connect-k8s-helm-charts.git
@@ -575,13 +579,25 @@ $(UV): | $(BASE) $(TOOLS) ; $(info --> TOOLS: Ensuring uv is present in $(UV))
 
 ## Download the kpt package and the catalog
 $(KPT_PKG): | $(BASE) $(KPT) ; $(info --> KPT: Ensuring the kpt pkg is present in $(KPT_PKG))
-	$(GIT) clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(EDA_KPT_PKG_SRC) $(KPT_PKG) --branch $(KPT_PKG_BRANCH) 2>&1 | $(INDENT_OUT)
 
 $(CATALOG): | $(BASE); $(info --> APPS: Ensuring the apps catalog is present in $(CATALOG))
-	$(GIT) clone $(CATALOG_PKG_SRC) $(CATALOG) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(CATALOG_PKG_SRC) $(CATALOG) --branch $(CATALOG_PKG_BRANCH) 2>&1 | $(INDENT_OUT)
+
+
+# $1 -- directory where the repo is cloned
+# $2 -- remote url
+define set-remote-and-fetch
+{	\
+	$(GIT) -C $(1) remote set-url origin $(2)									;\
+	$(GIT) -C $(1) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)		;\
+	$(GIT) -C $(1) fetch --tags --force --all 2>&1 | $(INDENT_OUT)				;\
+}
+endef
 
 # $1 - tag to checkout
 # $2 - Location of the repo
+# $3 - stash user customizations ?
 define checkout-repo-at-tag
 {	\
 	VERSION=$(1)																		;\
@@ -622,23 +638,22 @@ endef
 .PHONY: download-pkgs
 download-pkgs: | $(KPT_PKG) $(CATALOG) ## Download the eda-kpt and apps catalog repos and check them out at the requested version
 	@echo "--> INFO: Updating $(KPT_PKG)"
-	@$(GIT) -C $(KPT_PKG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
-	@$(GIT) -C $(KPT_PKG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
+	@$(call set-remote-and-fetch,$(KPT_PKG),$(EDA_KPT_PKG_SRC))
 	@echo "--> INFO: Updating $(CATALOG)"
-	@$(GIT) -C $(CATALOG) fetch --prune --prune-tags --force 2>&1 | $(INDENT_OUT)
-	@$(GIT) -C $(CATALOG) fetch --tags --force --all 2>&1 | $(INDENT_OUT)
+	@$(call set-remote-and-fetch,$(CATALOG),$(CATALOG_PKG_SRC))
 	@$(call checkout-repo-at-tag,$(EDA_CORE_VERSION),$(KPT_PKG),1)
 	@$(call checkout-repo-at-tag,$(EDA_APPS_VERSION),$(CATALOG),1)
 
 $(K8S_HELM): | $(BASE); $(info --> CONNECT K8S HELM CHARTS: Ensuring the Connect K8s Helm charts are present in $(K8S_HELM))
-	$(GIT) clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) 2>&1 | $(INDENT_OUT)
+	$(GIT) clone $(K8S_HELM_PKG_SRC) $(K8S_HELM) --branch $(CONNECT_PKG_BRANCH) 2>&1 | $(INDENT_OUT)
 
 .PHONY: download-connect-k8s-helm-charts
 download-connect-k8s-helm-charts: | $(K8S_HELM) ## Download the connect-k8s-helm-charts
 
 .PHONY: update-connect-k8s-helm-charts
 update-connect-k8s-helm-charts: | $(K8S_HELM) ## Fetch connect-k8s-helm-charts updates
-	$(GIT) -C $(K8S_HELM) pull
+	@$(call set-remote-and-fetch,$(K8S_HELM),$(K8S_HELM_PKG_SRC))
+	@$(GIT) -C $(K8S_HELM) checkout $(CONNECT_PKG_BRANCH) 2>&1 | $(INDENT_OUT)
 
 ##@ Cluster launch
 

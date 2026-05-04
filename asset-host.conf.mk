@@ -83,11 +83,6 @@ ASSET_HOST_ARTIFACTS_URL := $(ASSET_HOST_ARTIFACTS)
 # These set of url's are passed onto k8s/eda resources
 ASSET_HOST_APP_CATALOG := $(ASSET_HOST_GIT_URL)/catalog.git
 
-# Allow the user to override these from prefs.mk
-KPT_PKG_BRANCH ?= main
-CATALOG_PKG_BRANCH ?= main
-CONNECT_PKG_BRANCH ?= main
-
 # Ignore self signed certificates
 INSECURE ?= 1
 
@@ -95,9 +90,9 @@ ifdef ASSET_HOST_GIT_USERNAME
 GIT_AUTH ?= GIT_USERNAME_VAR=$(ASSET_HOST_GIT_USERNAME) GIT_PASSWORD_VAR=$(ASSET_HOST_GIT_PASSWORD)
 endif
 
-EDA_KPT_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/kpt.git --branch $(KPT_PKG_BRANCH)
-CATALOG_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/catalog.git --branch $(CATALOG_PKG_BRANCH)
-K8S_HELM_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/connect-k8s-helm-charts.git --branch $(CONNECT_PKG_BRANCH)
+EDA_KPT_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/kpt.git
+CATALOG_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/catalog.git
+K8S_HELM_PKG_SRC ?= $(ASSET_HOST_GIT_URL)/connect-k8s-helm-charts.git
 
 ## Tool Versions:
 KUBECTL_VERSION ?= v1.34.1
