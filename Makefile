@@ -36,6 +36,7 @@ ifeq ($(NO_KIND),yes)
 NO_HOST_PORT_MAPPINGS ?= yes
 endif
 
+ifndef ARCH
 ARCH_QUERY := $(shell uname -m)
 ifeq ($(ARCH_QUERY), x86_64)
 	ARCH := amd64
@@ -43,6 +44,7 @@ else ifeq ($(ARCH_QUERY),$(filter $(ARCH_QUERY), arm64 aarch64))
 	ARCH := arm64
 else
 	ARCH := $(ARCH_QUERY)
+endif
 endif
 
 # i.e Darwin / Linux
