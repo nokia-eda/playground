@@ -1155,6 +1155,27 @@ eda-is-core-deployment-ready: | $(BASE) $(KUBECTL) ## Wait for all of the core p
 .PHONY: eda-is-core-ready
 eda-is-core-ready: | eda-is-core-deployment-ready is-ce-first-commit-done apps-is-appflow-ready ## Flight checks if core is ready
 
+.PHONY: eda-is-core-transaction-load-from-git-ready
+eda-is-core-transaction-load-from-git-ready: | $(YQ) $(KUBECTL) is-ce-first-commit-done
+	@{	\
+		echo "--> CE: Blocking until initial load from git has completed"							;\
+		READY=0																						;\
+		while [[ $${READY} -ne 1 ]]; do																 \
+			TR_STATE="$$($(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) get transactionresults.core.eda.nokia.com --output yaml | $(YQ) '.items | .[] | select(.spec.description | contains("startup - initial load from git")) | .spec.result')" ;\
+			if [[ ! -z "$${TR_STATE}" ]]; then														 \
+				if [[ "$${TR_STATE}" == "OK" ]]; then												 \
+					READY=1																			;\
+					break																			;\
+				else																				 \
+					echo "--> CE: Waiting for transaction to be OK - it is $${TR_STATE}"			;\
+					sleep 5s																		;\
+				fi																					;\
+			fi																						;\
+			sleep 5s																				;\
+		done																						;\
+		echo "--> CE: Load from git completed: $${TR_STATE}"										;\
+	}
+
 .PHONY: eda-is-toolbox-ready
 eda-is-toolbox-ready:
 	@$(call K8S_WAIT_FOR_POD_RUNNING,TOOLBOX,$(POD_LABEL_ET),$(EDA_CORE_NAMESPACE))
@@ -1357,6 +1378,17 @@ eda-install-proxies: | $(BASE) $(KUBECTL) ## Enable proxy-server endpoints in yo
 		fi																		;\
 	}
 
+.PHONY: eda-install-trust
+eda-install-trust: | $(BASE) $(KUBECTL) ## Configure / re-configure core trust for the cluster
+	@{	\
+		echo "--> INFO: Configuring trust"										;\
+		trust_dirs="$(KPT_CORE)/certificates"									;\
+		trust_dirs=("$${trust_dirs}/bundles" "$${trust_dirs}/issuers")			;\
+		for dir in "$${trust_dirs[@]}"; do										 \
+			$(KUBECTL) apply -f $${dir} | $(INDENT_OUT)							;\
+		done																	;\
+	}
+
 .PHONY: eda-start-core
 eda-start-core: ## Start EDA platform using edactl in toolbox
 	@$(call EDACTL_CMD,$(EDA_PLATFORM_CMD) start)
@@ -1368,6 +1400,16 @@ eda-platform-info: ## Show EDA platform information
 .PHONY: edactl
 edactl: ## Execute arbitrary edactl command in toolbox (usage: make edactl CMD="platform")
 	@$(call EDACTL_CMD,$(CMD))
+
+##@ K8S resources operations
+
+K8S_UPGRADE_RESOURCES_MACHINE=
+K8S_UPGRADE_RESOURCES_MACHINE += eda-is-core-transaction-load-from-git-ready
+K8S_UPGRADE_RESOURCES_MACHINE += eda-install-proxies
+K8S_UPGRADE_RESOURCES_MACHINE += eda-install-trust
+
+.PHONY: eda-upgrade-resources-after-restore
+eda-upgrade-resources-after-restore: | $(BASE) $(K8S_UPGRADE_RESOURCES_MACHINE) ## Post restore of backup upgrade k8s eda custom resources
 
 ##@ Uninstall operations
 
