@@ -1758,31 +1758,35 @@ list-kpt-setters-playground: | $(KPT) $(UV) ## Show the available kpt setter for
 .PHONY: kpt-set-ext-arm-images
 kpt-set-ext-arm-images: | $(KPT) $(BUILD) $(CFG) ## Set ARM versions of the images
 	@{	\
-		$(YQ) eval ".data.CMCA_IMG = \"quay.io/jetstack/cert-manager-cainjector:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.TRUSTMGRBUNDLE_IMG = \"quay.io/jetstack/cert-manager-package-debian:20210119.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.TRUSTMGR_IMG = \"quay.io/jetstack/trust-manager:v0.15.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CMCT_IMG = \"quay.io/jetstack/cert-manager-controller:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CMWH_IMG = \"quay.io/jetstack/cert-manager-webhook:v1.16.2\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CSI_DRIVER_IMG = \"quay.io/jetstack/cert-manager-csi-driver:v0.10.1\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMCA_IMG = \"quay.io/jetstack/cert-manager-cainjector:v1.18.5\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.TRUSTMGRBUNDLE_IMG = \"quay.io/jetstack/trust-pkg-debian-bookworm:20230311-deb12u1.2\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.TRUSTMGR_IMG = \"quay.io/jetstack/trust-manager:v0.20.3\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMCT_IMG = \"quay.io/jetstack/cert-manager-controller:v1.18.5\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CMWH_IMG = \"quay.io/jetstack/cert-manager-webhook:v1.18.5\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_DRIVER_IMG = \"quay.io/jetstack/cert-manager-csi-driver:v0.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 		$(YQ) eval ".data.FB_IMG = \"cr.fluentbit.io/fluent/fluent-bit:3.0.7\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.GOGS_IMG_TAG = \"ghcr.io/gogs/gogs:0.13.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CSI_REGISTRAR_IMG = \"k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
-		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.12.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.GOGS_IMG_TAG = \"ghcr.io/gogs/gogs:0.14.1\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_REGISTRAR_IMG = \"k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.15.0\"" -i $(KPT_SETTERS_WORK_FILE); \
+		$(YQ) eval ".data.CSI_LIVPROBE_IMG = \"registry.k8s.io/sig-storage/livenessprobe:v2.15.0\"" -i $(KPT_SETTERS_WORK_FILE); \
 	}
 
 ##@ Try Eda
 
 .PHONY: patch-try-eda-allocations
-patch-try-eda-allocations: | $(KUBECTL) ## Patch all allocations in try eda to publish the allocated values to EDB
+patch-try-eda-allocations: | $(KUBECTL) $(if $(filter arm64,$(ARCH)),patch-try-eda-ipv4-mgmt-allocation,) ## Patch all allocations in try eda to publish the allocated values to EDB
 	@echo "--> INFO: Setting publish allocations to true for all allocations in $(EDA_USER_NAMESPACE) namespace"
-	@$(KUBECTL) get indexallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch indexallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+	@$(KUBECTL) get indexallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | tr ' ' '\n' | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch indexallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
 
-	@$(KUBECTL) get ipallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+	@$(KUBECTL) get ipallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | tr ' ' '\n' | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
 
-	@$(KUBECTL) get ipinsubnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipinsubnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+	@$(KUBECTL) get ipinsubnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | tr ' ' '\n' | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipinsubnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
 
-	@$(KUBECTL) get subnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} -d ' ' $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch subnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
+	@$(KUBECTL) get subnetallocationpools.core.eda.nokia.com -n $(EDA_USER_NAMESPACE) -o=jsonpath="{.items[*]['metadata.name']}" | tr ' ' '\n' | $(XARGS_CMD) -P $(XARGS_PARALLEL) -I {} $(KUBECTL) -n $(EDA_USER_NAMESPACE) patch subnetallocationpools.core.eda.nokia.com {} --type=merge -p '{"spec":{"publishAllocations":true}}' | $(INDENT_OUT)
 
+.PHONY: patch-try-eda-ipv4-mgmt-allocation
+patch-try-eda-ipv4-mgmt-allocation: | $(KUBECTL) ## Patch the ipv4 mgmt allocation pool for orbstack-based clusters to avoid ip range conflicts with podCIDR
+	@echo "--> INFO: Patching the ipv4 mgmt allocation pool to use 10.233.0.0/16 range"
+	@$(KUBECTL) -n $(EDA_USER_NAMESPACE) patch ipinsubnetallocationpools.core.eda.nokia.com ipv4-mgmt-pool --type=merge -p '{"spec":{"segments":[{"subnet":"10.233.0.0/16","allocations":[{"name":"gateway$$$$","value":"10.233.0.1/16"}]}]}}' | $(INDENT_OUT)
 
 .PHONY: create-try-eda-nodeport-svc
 create-try-eda-nodeport-svc: $(KUBECTL) ## Create Try EDA nodeport service to expose the API/UI
@@ -1864,8 +1868,8 @@ TRY_EDA_STEPS+=eda-install-core
 TRY_EDA_STEPS+=eda-is-core-ready
 TRY_EDA_STEPS+=eda-install-apps
 TRY_EDA_STEPS+=eda-bootstrap
-TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
 TRY_EDA_STEPS+=patch-try-eda-allocations
+TRY_EDA_STEPS+=$(if $(filter true,$(SIMULATE)),topology-load,)
 TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-eda-nodeport-svc)
 TRY_EDA_STEPS+=ls-ways-to-reach-api-server
 
