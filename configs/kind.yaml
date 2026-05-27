@@ -7,6 +7,12 @@ networking:
   # change the API server address from loopback to the desired IP
   # via KIND_API_SERVER_ADDRESS make variable
   apiServerAddress: "127.0.0.1"
+# Set containerd certs.d path that edabuilder uses to patch the container runtime
+# to trust the self-signed certificates of the edabuilder dev-registry
+containerdConfigPatches:
+  - >-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
 nodes:
   - role: control-plane
     # https://kind.sigs.k8s.io/docs/user/configuration/#extra-port-mappings
@@ -20,7 +26,7 @@ nodes:
       - containerPort: 32766
         hostPort: 51206
         listenAddress: "0.0.0.0"
-    # reserve node ports for branched clusters
+      # reserve node ports for branched clusters
       - containerPort: 32765
         hostPort: 9501            # branch 1 UI/API
         listenAddress: "0.0.0.0"
