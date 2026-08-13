@@ -27,3 +27,5 @@ data:
   PG_REQ_CPU: 100m
   # Flow Engine
   FE_REQ_CPU: 100m
+  # Do not ask the users to reset the EDA admin password on first login
+  RESET_EDA_ADMIN_PASSWORD_ON_FIRST_LOGIN: false
