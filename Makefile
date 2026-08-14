@@ -279,6 +279,10 @@ TOPOLOGY_LOAD_TARGET := topology-load-using-config-map
 EDACTL_QUERY_OUTPUT_YAML := query -f yaml
 endif
 
+ifeq ($(IS_EDA_CORE_LESSTHAN_268X),1)
+KIND_VERSION := v0.30.0
+KUBECTL_VERSION := v1.34.1
+endif
 
 #### Set apps release specific options
 ifeq ($(findstring 24.,$(EDA_APPS_VERSION)),24.)
