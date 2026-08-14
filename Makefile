@@ -439,6 +439,7 @@ POD_LABEL_ET ?= eda.nokia.com/app=eda-toolbox
 ### Include Libraries
 ### ---------------------------------------------------------------------------|
 include $(MKLIBS)/k8s-utils.mk
+include $(MKLIBS)/auth-config.mk
 
 ## Create working directories
 ## ----------------------------------------------------------------------------|
@@ -778,7 +779,7 @@ ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
 endif
 
 .PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ## Instantiate kpt setters work file from a template and set the known values
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) generate-credentials ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
 		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then		 \
 			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE)													;\
@@ -840,6 +841,15 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ##
 			export ENABLE_NODE_PORTS="true"																		;\
 		fi																										;\
 		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
+	}
+	@{	\
+		if [[ $(RANDOMIZE_CREDENTIALS) -eq 1 ]]; then \
+			$(YQ) eval ".data.SECRET_PG_DB_PASSWORD = \"$$(cat $(CRED_IDENITIY_DB))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
+			$(YQ) eval ".data.SECRET_KC_ADMIN_PASSWORD = \"$$(cat $(CRED_IDENTITY))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
+			$(YQ) eval ".data.CE_GIT_PASSWORD = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+			$(YQ) eval ".data.GOGS_ADMIN_PASS = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)				;\
+			$(YQ) eval ".data.SECRET_EDA_ADMIN_PASSWORD = \"$$(cat $(CRED_EDA))\"" -i $(KPT_SETTERS_WORK_FILE)		;\
+		fi																											;\
 	}
 ifdef APP_CATALOG
 	@{	\
@@ -1916,6 +1926,7 @@ TRY_EDA_STEPS+=$(if $(NO_HOST_PORT_MAPPINGS),start-ui-port-forward,create-try-ed
 TRY_EDA_STEPS+=ls-ways-to-reach-api-server
 
 try-eda: EXT_RELAX_DOMAIN_NAME_ENFORCEMENT=true
+try-eda: RANDOMIZE_CREDENTIALS=0
 
 .PHONY: try-eda
 try-eda: | $(TRY_EDA_STEPS)
