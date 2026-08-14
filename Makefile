@@ -185,13 +185,13 @@ TIMEOUT_TOPO_LOAD_IS_IT_COMPLETED ?= 5s
 ## Tool Versions:
 ## ----------------------------------------------------------------------------|
 GH_VERSION ?= 2.67.0
-HELM_VERSION ?= v3.17.0
-K9S_VERSION ?= v0.50.16
-KIND_VERSION ?= v0.30.0
-KPT_VERSION ?= v1.0.0-beta.57
-KUBECTL_VERSION ?= v1.34.1
+HELM_VERSION ?= v3.21.4
+K9S_VERSION ?= v0.51.0
+KIND_VERSION ?= v0.32.0
+KPT_VERSION ?= v1.0.0-beta.64
+KUBECTL_VERSION ?= v1.36.2
 UV_VERSION ?= 0.10.4
-YQ_VERSION ?= v4.42.1
+YQ_VERSION ?= v4.53.2
 
 ## EDA Versions and Decisions
 ## ----------------------------------------------------------------------------|
