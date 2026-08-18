@@ -327,7 +327,16 @@ endif
 TOPO ?= $(TOPOLOGY_DIR)/3-nodes-srl.yaml
 TOPO_EMPTY ?= $(TOPOLOGY_DIR)/00-delete-all-nodes.yaml
 
-
+## Load Balancer manifests
+## ----------------------------------------------------------------------------|
+TIMEOUT_METALLB_WH ?= 120
+LB_MANIFESTS ?= $(KPT_EXT_PKGS)/metallb/metallb-native.yaml
+METALLB_WH_YML = $(KPT_EXT_PKGS)/webhook-tests/metallb-webhook-ready-check.yaml
+ifeq ($(IS_EDA_CORE_LESSTHAN_268X),1)
+LB_MANIFESTS := $(CFG)/metallb-native.yaml
+else
+check_metallb_webhook := metallb-is-webhook-ready
+endif
 
 ## Tools:
 ## ----------------------------------------------------------------------------|
@@ -738,11 +747,37 @@ endef
 .PHONY: metallb-operator
 metallb-operator: | $(BASE) $(BUILD) $(KUBECTL) ; $(info --> LB: Loading the load balancer, metallb in the cluster)
 	@{	\
-		$(KUBECTL) apply -f $(CFG)/metallb-native.yaml | $(INDENT_OUT);\
-		$(KUBECTL) wait --namespace metallb-system \
-						--for=condition=ready pod \
-						--selector=app=metallb \
-						--timeout=120s | $(INDENT_OUT);\
+		$(KUBECTL) apply -f $(LB_MANIFESTS) | $(INDENT_OUT);\
+		$(KUBECTL) rollout status deployment/controller -n metallb-system \
+						--timeout=120s 2>&1 | $(INDENT_OUT);\
+		$(KUBECTL) rollout status daemonset/speaker -n metallb-system \
+						--timeout=120s 2>&1 | $(INDENT_OUT);\
+	}
+
+.PHONY: metallb-is-webhook-ready
+metallb-is-webhook-ready: | $(BASE) $(KUBECTL) ; $(info --> LB: Waiting for MetalLB validating webhook) @ ## Wait until ipaddresspoolvalidationwebhook.metallb.io can be reached
+	@{	\
+		START=$$(date +%s)																		;\
+		MAX_WAIT=$(TIMEOUT_METALLB_WH)															;\
+		COUNT=0																					;\
+		INSTALLED=0																				;\
+		while [[ $$COUNT -lt $$MAX_WAIT ]]; do													 \
+			wh_ready=0																			;\
+			$(KUBECTL) apply -f $(METALLB_WH_YML) --dry-run=server || wh_ready=$$?				;\
+			if [[ $${wh_ready} -eq 0 ]]; then													 \
+				INSTALLED=1																		;\
+				break																			;\
+			fi																					;\
+			echo "--> LB: Waiting for MetalLB webhook to be ready - $$(date) - count $$COUNT"	;\
+			COUNT=$$((COUNT + 1))																;\
+			sleep 1 																			;\
+		done 																					;\
+		if [[ $$INSTALLED -ne 1 ]]; then														 \
+			echo "--> LB: MetalLB webhook is not ready after $${MAX_WAIT}s"						;\
+			exit 1 																				;\
+		else																					 \
+			echo "--> LB: MetalLB webhook is ready - took: $$(( $$(date +%s) - $$START ))s"		;\
+		fi																						;\
 	}
 
 LB_CFG_SRC_ANNOUNCE ?= $(CFG)/metallb-config-L2Advertisement.yaml
@@ -772,7 +807,7 @@ metallb-configure-speaker: | $(BASE) $(KPT) ; $(info --> LB: Applying metallb L2
 metallb-configure: | $(BASE) metallb-configure-pools metallb-configure-speaker ; $(info --> LB: Applying metallb configuration) @ ## Apply metallb controller + speaker configuration
 
 .PHONY: metallb
-metallb: | $(BASE) $(KUBECTL) metallb-operator metallb-configure ## Load the metallb loadbalancer into the cluster
+metallb: | $(BASE) $(KUBECTL) metallb-operator $(check_metallb_webhook) metallb-configure ## Load the metallb loadbalancer into the cluster
 
 ##@ KPT Package configuration
 # -----------------------------------------------------------------------------|
