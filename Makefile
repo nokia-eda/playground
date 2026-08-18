@@ -105,7 +105,7 @@ http_proxy ?= ""
 no_proxy ?= ""
 LLM_API_KEY ?= ""
 
-APPLY_SETTER_IMG ?= ghcr.io/srl-labs/kpt-apply-setters:0.1.1
+APPLY_SETTER_IMG ?= ghcr.io/nokia-eda/ext/kptdev/krm-functions-catalog/apply-setters:v0.2
 SRL_IMAGE_REGISTRY=ghcr.io/nokia
 SRL_24_10_1_GHCR=$(SRL_IMAGE_REGISTRY)/srlinux:24.10.1-492
 
