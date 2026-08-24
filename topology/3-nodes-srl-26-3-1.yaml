@@ -9,7 +9,7 @@ spec:
   - name: default
     labels:
         eda.nokia.com/security-profile: managed
-    nodeProfile: srlinux-ghcr-26.7.1
+    nodeProfile: srlinux-ghcr-26.3.1
   - name: leaf
     labels:
         eda.nokia.com/role: leaf
