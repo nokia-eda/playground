@@ -1354,6 +1354,17 @@ apps-is-appflow-ready:
 		done ;\
 	}
 
+.PHONY: eda-install-apps-signing-key
+eda-install-apps-signing-key: | $(BASE) $(KUBECTL) $(KPT_PKG) ## Install/Update the app signing verification key
+	@{ \
+		if [[ $(IS_EDA_CORE_LESSTHAN_268X) -ne 1 ]]; then										 \
+			echo "--> INFO: Installing signing key"												;\
+			for key in $(KPT_CORE)/appstore-gh/signing-key-*.yaml; do							 \
+				$(KUBECTL) --namespace $(EDA_CORE_NAMESPACE) apply -f $${key} | $(INDENT_OUT)	;\
+			done																				;\
+		fi																						;\
+	}
+
 ### Pre 25.4.x way to install apps
 
 ## The @ suppressor is not here, its in the $(call ...) where the macro is called
@@ -1402,7 +1413,7 @@ include $(MKLIBS)/install-apps-using-appinstall.mk
 endif
 
 .PHONY: eda-install-apps
-eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) $(YQ) apps-is-appflow-ready ## Install EDA apps from the appstore catalog
+eda-install-apps: | $(BASE) $(CATALOG) $(KUBECTL) $(YQ) apps-is-appflow-ready eda-install-apps-signing-key ## Install EDA apps from the appstore catalog
 	@echo "--> INFO: EDA_APPS_VERSION=$(EDA_APPS_VERSION)"
 ifeq ($(USE_BULK_APP_INSTALL),1)
 	@$(call BUILD_BULK_CRS,$(APP_INSTALL_BULK_TEMPLATE),$(APP_INSTALL_BULK_CR),$(EDA_APPS_INSTALL_NAMESPACE),$(APP_INSTALL_BULK_WF_NAME),install)
