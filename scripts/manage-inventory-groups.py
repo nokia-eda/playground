@@ -189,6 +189,9 @@ def process_resourcegroups(data: dict, markers: dict[str, str]):
 
         inventory_metadata = rg["metadata"]
         inventory_name = inventory_metadata["name"]
+        if "resources" not in rg["spec"]:
+            logger.warning(f"Inventory {inventory_name} has no resources -- skipping")
+            continue
         inventory_resources = rg["spec"]["resources"]
 
         logger.debug(f"Processing {inventory_name}")
