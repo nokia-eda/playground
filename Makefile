@@ -831,7 +831,7 @@ ifeq ($(strip $(EXT_IPV4_ADDR)$(EXT_IPV6_ADDR)),)
 endif
 
 .PHONY: instantiate-kpt-setters-work-file
-instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) generate-credentials ## Instantiate kpt setters work file from a template and set the known values
+instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ## Instantiate kpt setters work file from a template and set the known values
 	@{	\
 		if [ ! -f $(KPT_SETTERS_WORK_FILE) ] || [ $(KPT_SETTERS_REAL_LOC) -nt $(KPT_SETTERS_WORK_FILE) ]; then		 \
 			cp -v $(KPT_SETTERS_REAL_LOC) $(KPT_SETTERS_WORK_FILE)													;\
@@ -893,17 +893,6 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ge
 			export ENABLE_NODE_PORTS="true"																		;\
 		fi																										;\
 		$(YQ) eval ".data.API_SVC_ENABLE_LB_NODE_PORTS = env(ENABLE_NODE_PORTS)" -i $(KPT_SETTERS_WORK_FILE)	;\
-	}
-	@{	\
-		if [[ $(RANDOMIZE_CREDENTIALS) -eq 1 ]]; then \
-			$(YQ) eval ".data.SECRET_PG_DB_PASSWORD = \"$$(cat $(CRED_IDENITIY_DB))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
-			$(YQ) eval ".data.SECRET_KC_ADMIN_PASSWORD = \"$$(cat $(CRED_IDENTITY))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
-			$(YQ) eval ".data.SECRET_EDA_ADMIN_PASSWORD = \"$$(cat $(CRED_EDA))\"" -i $(KPT_SETTERS_WORK_FILE)		;\
-			if [[ "$(RANDOMIZE_GOGS_CREDENTIALS)" -eq 1 ]]; then													 \
-				$(YQ) eval ".data.CE_GIT_PASSWORD = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)			;\
-				$(YQ) eval ".data.GOGS_ADMIN_PASS = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)			;\
-			fi																										;\
-		fi																											;\
 	}
 ifdef APP_CATALOG
 	@{	\
