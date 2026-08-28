@@ -898,9 +898,11 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ge
 		if [[ $(RANDOMIZE_CREDENTIALS) -eq 1 ]]; then \
 			$(YQ) eval ".data.SECRET_PG_DB_PASSWORD = \"$$(cat $(CRED_IDENITIY_DB))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
 			$(YQ) eval ".data.SECRET_KC_ADMIN_PASSWORD = \"$$(cat $(CRED_IDENTITY))\"" -i $(KPT_SETTERS_WORK_FILE)	;\
-			$(YQ) eval ".data.CE_GIT_PASSWORD = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)				;\
-			$(YQ) eval ".data.GOGS_ADMIN_PASS = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)				;\
 			$(YQ) eval ".data.SECRET_EDA_ADMIN_PASSWORD = \"$$(cat $(CRED_EDA))\"" -i $(KPT_SETTERS_WORK_FILE)		;\
+			if [[ "$(RANDOMIZE_GOGS_CREDENTIALS)" -eq 1 ]]; then													 \
+				$(YQ) eval ".data.CE_GIT_PASSWORD = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)			;\
+				$(YQ) eval ".data.GOGS_ADMIN_PASS = \"$$(cat $(CRED_GIT))\"" -i $(KPT_SETTERS_WORK_FILE)			;\
+			fi																										;\
 		fi																											;\
 	}
 ifdef APP_CATALOG

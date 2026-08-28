@@ -2,6 +2,7 @@ CRED_LABEL_WIDTH ?= 22
 AUTH_CRED_LENGTH ?= 32
 
 RANDOMIZE_CREDENTIALS ?= 1
+RANDOMIZE_GOGS_CREDENTIALS ?= 0
 
 # Credential display labels (used by show-initial-credentials; keep within CRED_LABEL_WIDTH)
 CRED_LABEL_EDA := EDA admin user
@@ -59,8 +60,10 @@ generate-credentials: | $(BUILD) ## Generate credentials for use on a fresh inst
 			echo "--> INFO: Randomizing initial boot credentials"														;\
 			$(call seed-credential,$(CRED_IDENITIY_DB),$(AUTH_CRED_LENGTH),$(CRED_LABEL_IDENTITY_DB))					;\
 			$(call seed-credential,$(CRED_IDENTITY),$(AUTH_CRED_LENGTH),$(CRED_LABEL_IDENTITY))							;\
-			$(call seed-credential,$(CRED_GIT),$(AUTH_CRED_LENGTH),$(CRED_LABEL_GIT))									;\
 			$(call seed-credential,$(CRED_EDA),$(AUTH_CRED_LENGTH),$(CRED_LABEL_EDA))									;\
+			if [[ "$(RANDOMIZE_GOGS_CREDENTIALS)" -eq 1 ]]; then														 \
+				$(call seed-credential,$(CRED_GIT),$(AUTH_CRED_LENGTH),$(CRED_LABEL_GIT))								;\
+			fi																											;\
 		fi																												;\
 	}
 
@@ -74,4 +77,6 @@ show-generated-credentials: ## Show the generated credentials that are used
 	@$(call show-credential,$(CRED_EDA),$(CRED_LABEL_EDA))
 	@$(call show-credential,$(CRED_IDENTITY),$(CRED_LABEL_IDENTITY))
 	@$(call show-credential,$(CRED_IDENITIY_DB),$(CRED_LABEL_IDENTITY_DB))
+ifeq ($(RANDOMIZE_GOGS_CREDENTIALS),1)
 	@$(call show-credential,$(CRED_GIT),$(CRED_LABEL_GIT))
+endif
