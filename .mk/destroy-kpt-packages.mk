@@ -12,6 +12,27 @@ define DESTROY_KPT_PACKAGE
 	}
 endef
 
+# Remove the errant transactionpipeline CRD if found
+define UNINSTALL_CRD_TP
+	{	\
+		export crd_name="transactionpipelines.core.eda.nokia.com"														;\
+		found=$$($(KUBECTL) get crd -o yaml | $(YQ) '.items[].metadata.name | select(. == env(crd_name))')				;\
+		if [[ -n "$${found}" ]]; then																					 \
+			echo "--> INFO: Found $${crd_name}"																			;\
+			hasShortNames=$$($(KUBECTL) get crds $${crd_name} -o yaml | $(YQ) '.spec.names | has("shortNames")')		;\
+			if [[ "$${hasShortNames}" == "true" ]]; then																 \
+				short_yaml=$$($(KUBECTL) get crd $${crd_name} -o yaml | $(YQ) '.spec.names.shortNames | sort')			;\
+				len=$$(echo "$${short_yaml}" | $(YQ) 'length')															;\
+				first=$$(echo "$${short_yaml}" | $(YQ) '.[0]')															;\
+				second=$$(echo "$${short_yaml}" | $(YQ) '.[1]')															;\
+				if [[ "$${len}" == "2" && "$${first}" == "pipelinerun" && "$${second}" == "plr" ]]; then				 \
+					$(KUBECTL) delete customresourcedefinitions.apiextensions.k8s.io $${crd_name} --force 				;\
+					echo "--> INFO: Removed $${crd_name}"																;\
+				fi																										;\
+			fi																											;\
+		fi																												;\
+	}
+endef
 
 .PHONY: uninstall-eda-core-ns
 uninstall-eda-core-ns: | $(BASE) $(KPT) 
@@ -53,9 +74,10 @@ uninstall-external-package-eda-issuer-api: | $(BASE) $(KPT)
 # $(if $(filter $(IS_EDA_CORE_LESSTHAN_258X),1),uninstall-finalizers,)
 # but perhaps it is better to run it always
 .PHONY: uninstall-eda-core
-uninstall-eda-core: | $(BASE) $(KPT) uninstall-finalizers ; $(info --> KPT: Removing EDA Core) @ ## Base uninstall of EDA in a cluster
+uninstall-eda-core: | $(BASE) $(KPT) $(KUBECTL) $(YQ) uninstall-finalizers ; $(info --> KPT: Removing EDA Core) @ ## Base uninstall of EDA in a cluster
 	@echo "--> INFO: EDA_CORE_VERSION=$(EDA_CORE_VERSION)"
 	@$(call DESTROY_KPT_PACKAGE,$(KPT_CORE),EDA-CORE)
+	@$(call UNINSTALL_CRD_TP)
 
 # Keep the old target around in case someone calls it
 .PHONY: eda-uninstall-core
