@@ -993,9 +993,9 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 		MAX_WAIT=120														;\
 		COUNT=0																;\
 		INSTALLED=0															;\
-		while [ $$COUNT -lt $$MAX_WAIT ]; do								 \
+		while [[ $$COUNT -lt $$MAX_WAIT ]]; do								 \
 			wh_ready=0														;\
-			$(KUBECTL) apply -f $(CM_WH_YML) --dry-run=server || $$wh_ready=$$? ;\
+			$(KUBECTL) apply -f $(CM_WH_YML) --dry-run=server || wh_ready=$$? ;\
 			if [[ $${wh_ready} -eq 0 ]]; then								 \
 				INSTALLED=1													;\
 				break														;\
@@ -1004,7 +1004,7 @@ cm-is-webhook-ready: ## Is the webhook admissions controller for cert-manager re
 			COUNT=$$((COUNT + 1))											;\
 			sleep 1 														;\
 		done 																;\
-		if [ $$INSTALLED -ne 1 ] ; then										 \
+		if [[ $$INSTALLED -ne 1 ]]; then									 \
 			echo "--> CERT: Webhook is not ready in $${COUNT}s"				;\
 			exit 1 															;\
 		else																 \
