@@ -104,6 +104,7 @@ https_proxy ?= ""
 http_proxy ?= ""
 no_proxy ?= ""
 LLM_API_KEY ?= ""
+CLUSTER_DNS_SUFFIX ?= cluster.local
 
 APPLY_SETTER_IMG ?= ghcr.io/nokia-eda/ext/kptdev/krm-functions-catalog/apply-setters:v0.2
 SRL_IMAGE_REGISTRY=ghcr.io/nokia
@@ -841,10 +842,10 @@ instantiate-kpt-setters-work-file: | $(BASE) $(BUILD) $(CFG) $(YQ) $(KUBECTL) ##
 		export cluster_svc_cidr=$$($(GET_SVC_CIDR))																	;\
 		export HTTPS_PROXY=$(HTTPS_PROXY)																			;\
 		export HTTP_PROXY=$(HTTP_PROXY)																				;\
-		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica,edabuilder-dev-registry,edabuilder-in-cluster-dev-registry"	;\
+		export NO_PROXY="$(NO_PROXY),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,.svc.$(CLUSTER_DNS_SUFFIX).,eda-git,eda-git-replica,edabuilder-dev-registry,edabuilder-in-cluster-dev-registry"	;\
 		export https_proxy=$(https_proxy)																			;\
 		export http_proxy=$(http_proxy)																				;\
-		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,eda-git,eda-git-replica,edabuilder-dev-registry,edabuilder-in-cluster-dev-registry"	;\
+		export no_proxy="$(no_proxy),$${cluster_pod_cidr},$${cluster_svc_cidr},.local,.svc,.svc.$(CLUSTER_DNS_SUFFIX).,eda-git,eda-git-replica,edabuilder-dev-registry,edabuilder-in-cluster-dev-registry"	;\
 		export RO_TOKEN_REG=$$(echo -n "$(GH_REG_TOKEN)" | $(GH_SET_REG) | base64)									;\
 		export RO_TOKEN_CATALOG=$$(echo -n "$(GH_PKG_TOKEN)" | $(GH_SET_CAT) | base64)								;\
 		$(YQ) eval --no-doc '... comments=""' -i $(KPT_SETTERS_WORK_FILE)											;\
