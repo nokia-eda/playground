@@ -1454,6 +1454,10 @@ eda-install-trust: | $(BASE) $(KUBECTL) ## Configure / re-configure core trust f
 		done																	;\
 	}
 
+.PHONY: eda-reset-internal-ca
+eda-reset-internal-ca: | $(BASE) $(KUBECTL) ## Remove the internal CA secret to regenerate it
+	@$(KUBECTL) delete --namespace $(EDA_CORE_NAMESPACE) secret eda-internal-ca --ignore-not-found | $(INDENT_OUT)
+
 .PHONY: eda-start-core
 eda-start-core: ## Start EDA platform using edactl in toolbox
 	@$(call EDACTL_CMD,$(EDA_PLATFORM_CMD) start)
