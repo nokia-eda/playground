@@ -1933,7 +1933,7 @@ expose-try-eda-branch: | $(KUBECTL) $(YQ) enforce-domain-name-enforcement ## Cre
 		cp -f $(TRYEDA_BRANCH_ENDPOINTSLICE_FILE_REAL_LOC) "$${NODEPORT_ENDPOINTSLICE}"																											;\
 		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i "$${NODEPORT_SVC}"																										;\
 		$(YQ) eval ".metadata.namespace = \"$(EDA_CORE_NAMESPACE)\"" -i "$${NODEPORT_ENDPOINTSLICE}"																							;\
-		endpointslice_name="vcluster-$(BRANCH_NAME)-eda-api-x-$(EDA_CORE_NAMESPACE)-x-$(BRANCH_NAME)-vcluster-ipv4"																				;\
+		endpointslice_name="v-$(BRANCH_NAME)-eda-api-x-$(EDA_CORE_NAMESPACE)-x-v-$(BRANCH_NAME)-ipv4"																				;\
 		endpoint_ip="$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) get endpointslices.discovery.k8s.io $${endpointslice_name} -o=jsonpath='{.endpoints[0].addresses[0]}')"								;\
 		BRANCH_PORT_API="$$($(KUBECTL) -n $(EDA_CORE_NAMESPACE) get $${branches} $(BRANCH_NAME) -o=jsonpath='{.status.port}')"																	;\
 		NODE_PORT=$$(( 32766 - $$(( $${BRANCH_PORT_API} - 9500)) ))																																;\
